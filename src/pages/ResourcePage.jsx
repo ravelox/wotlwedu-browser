@@ -1,0 +1,215 @@
+import { useEffect, useMemo, useState } from "react";
+import { ErrorBanner, SuccessBanner } from "../components/Feedback";
+import Loading from "../components/Loading";
+import { toApiError } from "../lib/api";
+
+function coerceValue(type, value) {
+  if (type === "checkbox") return Boolean(value);
+  if (type === "number") return value === "" || value == null ? "" : Number(value);
+  return value ?? "";
+}
+
+export default function ResourcePage({ api, definition }) {
+  const [rows, setRows] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [form, setForm] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [filter, setFilter] = useState("");
+
+  const fields = definition.fields;
+  const idField = definition.idField;
+
+  const newRecord = useMemo(() => {
+    const next = {};
+    for (const [key, , type] of fields) {
+      next[key] = type === "checkbox" ? false : "";
+    }
+    return next;
+  }, [fields]);
+
+  const listRows = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await api.get(definition.path, {
+        params: { page: 1, items: 100, filter: filter || undefined },
+      });
+      if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title}`);
+      const items = response.data?.[definition.listKey] || [];
+      setRows(items);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSingle = async (id) => {
+    if (!id) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await api.get(`${definition.path}/${id}`);
+      if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title} item`);
+      const entity = response.data?.[definition.singleKey];
+      if (!entity) return;
+      const next = { ...newRecord };
+      for (const [key, , type] of fields) {
+        next[key] = coerceValue(type, entity[key]);
+      }
+      setForm(next);
+      setSelectedId(id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSave = async () => {
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const payload = {};
+      for (const [key, , type] of fields) {
+        payload[key] = coerceValue(type, form[key]);
+      }
+
+      const response = selectedId
+        ? await api.put(`${definition.path}/${selectedId}`, payload)
+        : await api.post(definition.path, payload);
+
+      if (response.status >= 400) throw toApiError(response, `Failed to save ${definition.title}`);
+      setSuccess(`${definition.title} saved`);
+      if (!selectedId) setForm(newRecord);
+      await listRows();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!selectedId) return;
+    if (definition.deletable === false) return;
+    if (!window.confirm(`Delete ${definition.title} item ${selectedId}?`)) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.delete(`${definition.path}/${selectedId}`);
+      if (response.status >= 400) throw toApiError(response, `Failed to delete ${definition.title}`);
+      setSuccess(`${definition.title} deleted`);
+      setSelectedId(null);
+      setForm(newRecord);
+      await listRows();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    setForm(newRecord);
+  }, [newRecord]);
+
+  useEffect(() => {
+    listRows();
+  }, []);
+
+  return (
+    <div className="resource-grid">
+      <div className="panel panel-table">
+        <div className="panel-header">
+          <h2>{definition.title}</h2>
+          <div className="filter-row">
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter"
+            />
+            <button className="btn" onClick={listRows}>Search</button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setSelectedId(null);
+                setForm(newRecord);
+                setSuccess("");
+                setError("");
+              }}
+            >
+              New
+            </button>
+          </div>
+        </div>
+
+        {loading ? <Loading /> : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                {fields.slice(0, 3).map(([key, label]) => <th key={key}>{label}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row[idField]}
+                  className={selectedId === row[idField] ? "row-selected" : ""}
+                  onClick={() => loadSingle(row[idField])}
+                >
+                  <td>{row[idField]}</td>
+                  {fields.slice(0, 3).map(([key]) => <td key={key}>{String(row[key] ?? "")}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="panel panel-form">
+        <div className="panel-header">
+          <h3>{selectedId ? `Edit ${selectedId}` : `New ${definition.title.slice(0, -1)}`}</h3>
+        </div>
+        <ErrorBanner error={error} />
+        <SuccessBanner message={success} />
+
+        <div className="form-grid">
+          {fields.map(([key, label, type]) => (
+            <label key={key} className={type === "textarea" ? "field field-full" : "field"}>
+              <span>{label}</span>
+              {type === "textarea" ? (
+                <textarea value={form[key] ?? ""} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))} />
+              ) : type === "checkbox" ? (
+                <input
+                  type="checkbox"
+                  checked={Boolean(form[key])}
+                  onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.checked }))}
+                />
+              ) : (
+                <input
+                  type={type === "number" ? "number" : "text"}
+                  value={form[key] ?? ""}
+                  onChange={(e) => setForm((p) => ({ ...p, [key]: type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))}
+                />
+              )}
+            </label>
+          ))}
+        </div>
+
+        <div className="actions">
+          <button className="btn" disabled={saving} onClick={onSave}>{saving ? "Saving..." : "Save"}</button>
+          {definition.deletable !== false && (
+            <button className="btn btn-danger" disabled={!selectedId || saving} onClick={onDelete}>Delete</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
