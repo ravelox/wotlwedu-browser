@@ -18,7 +18,6 @@ const NAV_ITEMS = [
   ["Votes", "/votes"],
   ["Notifications", "/notifications"],
   ["Preferences", "/preferences"],
-  ["AI Workbench", "/ai"],
 ];
 
 export default function Shell({

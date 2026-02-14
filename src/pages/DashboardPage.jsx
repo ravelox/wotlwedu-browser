@@ -8,18 +8,16 @@ export default function DashboardPage({ api }) {
   const [status, setStatus] = useState(null);
   const [ping, setPing] = useState(null);
   const [unread, setUnread] = useState(0);
-  const [defaults, setDefaults] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError("");
       try {
-        const [statusRes, pingRes, unreadRes, defaultsRes] = await Promise.all([
+        const [statusRes, pingRes, unreadRes] = await Promise.all([
           api.get("/helper/status"),
           api.get("/ping"),
           api.get("/notification/unreadcount"),
-          api.get("/ai/preferences/defaults"),
         ]);
 
         if (statusRes.status < 400) setStatus(statusRes.data);
@@ -27,9 +25,6 @@ export default function DashboardPage({ api }) {
         if (unreadRes.status < 400) {
           const value = unreadRes.data?.count ?? unreadRes.data?.data?.count ?? 0;
           setUnread(value);
-        }
-        if (defaultsRes.status < 400) {
-          setDefaults(defaultsRes.data?.data || defaultsRes.data);
         }
       } catch (err) {
         setError(err.message);
@@ -57,10 +52,6 @@ export default function DashboardPage({ api }) {
       <section className="panel">
         <h2>Unread Notifications</h2>
         <div className="metric">{unread}</div>
-      </section>
-      <section className="panel">
-        <h2>AI Smart Defaults</h2>
-        <pre>{JSON.stringify(defaults, null, 2)}</pre>
       </section>
     </div>
   );

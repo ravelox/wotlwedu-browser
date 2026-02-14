@@ -4,7 +4,6 @@ import Shell from "./components/Shell";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import ResourcePage from "./pages/ResourcePage";
-import AIWorkbenchPage from "./pages/AIWorkbenchPage";
 import { createApi } from "./lib/api";
 import { clearSession, getSession, setSession } from "./lib/session";
 import { RESOURCE_DEFS } from "./lib/resourceDefs";
@@ -151,7 +150,6 @@ export default function App() {
                 <Route path="/votes" element={ResourceRoute("votes")} />
                 <Route path="/notifications" element={ResourceRoute("notifications")} />
                 <Route path="/preferences" element={ResourceRoute("preferences")} />
-                <Route path="/ai" element={<AIWorkbenchPage api={api} />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Shell>
