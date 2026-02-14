@@ -44,6 +44,7 @@ export const RESOURCE_DEFS = {
     listKey: "users",
     singleKey: "user",
     idField: "id",
+    supportsWorkgroupScope: true,
     fields: [
       ["firstName", "First Name", "text"],
       ["lastName", "Last Name", "text"],
