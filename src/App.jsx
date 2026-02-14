@@ -78,6 +78,9 @@ export default function App() {
     const def = RESOURCE_DEFS[key];
     return (
       <ResourcePage
+        // Force a remount when switching resources so table/form panes never show stale state
+        // from the previous route (filters, selected row, etc).
+        key={key}
         api={api}
         definition={def}
         scope={{ activeWorkgroupId }}
