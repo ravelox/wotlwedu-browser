@@ -57,5 +57,6 @@ Runtime behavior:
 - If neither is set, the fallback is `https://api.wotlwedu.com:9876`.
 
 ## Notes
-- Some backend flows are specialized (for example full 2FA bootstrap/verify sequences and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.
+- 2FA-enabled accounts are supported for login (the browser UI prompts for the one-time code after password verification).
+- Some backend flows are specialized (for example full 2FA bootstrap/enable and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.
 - Authorization is enforced by backend capabilities and tenant/workgroup scope.
