@@ -13,6 +13,7 @@ export default function ResourcePage({ api, definition, scope }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
+  const [uploadFile, setUploadFile] = useState(null);
   const [scopedOrganizationId, setScopedOrganizationId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -141,8 +142,43 @@ export default function ResourcePage({ api, definition, scope }) {
     }
   };
 
+  const onUploadImage = async () => {
+    if (definition.path !== "/image") return;
+    if (!selectedId) {
+      setError("Save the image record first, then upload a file.");
+      return;
+    }
+    if (!uploadFile) {
+      setError("Choose an image file to upload.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const formData = new FormData();
+      const name = uploadFile.name || "";
+      const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+      const safeExt = ["png", "jpg", "jpeg"].includes(ext) ? ext : "jpg";
+      formData.append("fileextension", safeExt);
+      formData.append("imageUpload", uploadFile);
+
+      const response = await api.post(`/image/file/${selectedId}`, formData);
+      if (response.status >= 400) throw toApiError(response, "Failed to upload image");
+      setSuccess("Image uploaded");
+      setUploadFile(null);
+      await listRows();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     setForm(newRecord);
+    setUploadFile(null);
   }, [newRecord]);
 
   // For the Users pane: if a workgroup scope is selected, default the new-user organizationId
@@ -198,6 +234,7 @@ export default function ResourcePage({ api, definition, scope }) {
               onClick={() => {
                 setSelectedId(null);
                 setForm(newRecord);
+                setUploadFile(null);
                 setSuccess("");
                 setError("");
               }}
@@ -259,6 +296,35 @@ export default function ResourcePage({ api, definition, scope }) {
               )}
             </label>
           ))}
+
+          {definition.path === "/image" && (
+            <div className="field field-full">
+              <span style={{ display: "block", marginBottom: 6 }}>Upload File</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(e) =>
+                  setUploadFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)
+                }
+                disabled={saving || loading}
+              />
+              <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={onUploadImage}
+                  disabled={saving || loading || !selectedId || !uploadFile}
+                >
+                  Upload
+                </button>
+                {!selectedId && (
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    Create/save the image record first to get an ID.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="actions">

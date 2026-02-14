@@ -13,7 +13,13 @@ export function createApi(baseURL, onUnauthorized) {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    config.headers["Content-Type"] = config.headers["Content-Type"] || "application/json";
+    // Don't force JSON for multipart uploads (FormData must set its own boundary).
+    const isFormData =
+      typeof FormData !== "undefined" && config.data instanceof FormData;
+    if (!isFormData) {
+      config.headers["Content-Type"] =
+        config.headers["Content-Type"] || "application/json";
+    }
     return config;
   });
 
