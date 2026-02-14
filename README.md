@@ -36,6 +36,26 @@ The UI includes an editable "API Base URL" field in the header area. Default val
 
 For local backend development, set it to your local backend URL (for example `https://localhost:9876`).
 
+You can set the default at build/dev time with:
+
+`VITE_WOTLWEDU_API_BASE_URL`
+
+Examples:
+```bash
+VITE_WOTLWEDU_API_BASE_URL=http://localhost:9876 npm run dev
+```
+
+```bash
+docker build \
+  --build-arg VITE_WOTLWEDU_API_BASE_URL=http://localhost:9876 \
+  -t wotlwedu-browser .
+```
+
+Runtime behavior:
+- If `localStorage["wotlwedu_browser_api"]` exists, that value is used.
+- Otherwise, `VITE_WOTLWEDU_API_BASE_URL` is used.
+- If neither is set, the fallback is `https://api.wotlwedu.com:9876`.
+
 ## Notes
 - Some backend flows are specialized (for example full 2FA bootstrap/verify sequences and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.
 - Authorization is enforced by backend capabilities and tenant/workgroup scope.

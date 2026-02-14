@@ -89,6 +89,11 @@ nav { display: grid; gap: 6px; }
   padding: 10px 14px;
 }
 .api-bar input { width: 100%; margin-top: 6px; }
+.api-bar-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
 
 .resource-grid {
   display: grid;
