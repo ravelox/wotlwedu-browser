@@ -4,6 +4,13 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.2 - 2026-02-14
+- Add image file upload support in the Images pane (multipart upload to `/image/file/:imageId`).
+- Fix Users pane workgroup scoping (send `workgroupId` when a scope is selected).
+- Prepopulate new-user `organizationId` from selected workgroup scope.
+- Ensure resource panes remount on nav changes to avoid stale table/form state.
+- Remove AI workbench UI (backend `/ai` endpoints removed).
+
 ## 0.1.1 - 2026-02-14
 - Add 2FA login flow support (`/login` -> `/login/verify2fa`).
 - Add workgroup scoping support for workgroup-aware endpoints.
