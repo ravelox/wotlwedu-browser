@@ -9,7 +9,7 @@ function coerceValue(type, value) {
   return value ?? "";
 }
 
-export default function ResourcePage({ api, definition }) {
+export default function ResourcePage({ api, definition, scope }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
@@ -27,18 +27,32 @@ export default function ResourcePage({ api, definition }) {
     for (const [key, , type] of fields) {
       next[key] = type === "checkbox" ? false : "";
     }
+    // Default workgroupId for workgroup-scoped resources when the caller has a selected scope.
+    if (definition.supportsWorkgroupScope && scope?.activeWorkgroupId) {
+      if (Object.prototype.hasOwnProperty.call(next, "workgroupId")) {
+        next.workgroupId = scope.activeWorkgroupId;
+      }
+    }
     return next;
-  }, [fields]);
+  }, [fields, definition.supportsWorkgroupScope, scope?.activeWorkgroupId]);
 
   const listRows = async () => {
     setLoading(true);
     setError("");
     try {
       const response = await api.get(definition.path, {
-        params: { page: 1, items: 100, filter: filter || undefined },
+        params: {
+          page: 1,
+          items: 100,
+          filter: filter || undefined,
+          workgroupId:
+            definition.supportsWorkgroupScope && scope?.activeWorkgroupId
+              ? scope.activeWorkgroupId
+              : undefined,
+        },
       });
       if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title}`);
-      const items = response.data?.[definition.listKey] || [];
+      const items = response.data?.data?.[definition.listKey] || response.data?.[definition.listKey] || [];
       setRows(items);
     } catch (err) {
       setError(err.message);
@@ -54,7 +68,7 @@ export default function ResourcePage({ api, definition }) {
     try {
       const response = await api.get(`${definition.path}/${id}`);
       if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title} item`);
-      const entity = response.data?.[definition.singleKey];
+      const entity = response.data?.data?.[definition.singleKey] || response.data?.[definition.singleKey];
       if (!entity) return;
       const next = { ...newRecord };
       for (const [key, , type] of fields) {
@@ -77,6 +91,17 @@ export default function ResourcePage({ api, definition }) {
       const payload = {};
       for (const [key, , type] of fields) {
         payload[key] = coerceValue(type, form[key]);
+      }
+
+      // If the UI has an active workgroup scope and this resource is workgroup-scoped,
+      // default payload.workgroupId on create when the user hasn't specified it.
+      if (
+        !selectedId &&
+        definition.supportsWorkgroupScope &&
+        scope?.activeWorkgroupId &&
+        (!payload.workgroupId || payload.workgroupId === "")
+      ) {
+        payload.workgroupId = scope.activeWorkgroupId;
       }
 
       const response = selectedId
@@ -121,7 +146,7 @@ export default function ResourcePage({ api, definition }) {
 
   useEffect(() => {
     listRows();
-  }, []);
+  }, [scope?.activeWorkgroupId]);
 
   return (
     <div className="resource-grid">

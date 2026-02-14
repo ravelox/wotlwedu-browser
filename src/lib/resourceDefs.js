@@ -13,6 +13,20 @@ export const RESOURCE_DEFS = {
   },
   workgroups: {
     title: "Workgroups",
+    path: "/workgroup",
+    listKey: "workgroups",
+    singleKey: "workgroup",
+    idField: "id",
+    fields: [
+      ["name", "Name", "text"],
+      ["description", "Description", "textarea"],
+      ["organizationId", "Organization ID", "text"],
+      ["categoryId", "Category ID", "text"],
+      ["listType", "List Type", "number"],
+    ],
+  },
+  groups: {
+    title: "Groups",
     path: "/group",
     listKey: "groups",
     singleKey: "group",
@@ -20,7 +34,6 @@ export const RESOURCE_DEFS = {
     fields: [
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
-      ["organizationId", "Organization ID", "text"],
       ["categoryId", "Category ID", "text"],
       ["listType", "List Type", "number"],
     ],
@@ -42,7 +55,7 @@ export const RESOURCE_DEFS = {
       ["systemAdmin", "System Admin", "checkbox"],
       ["organizationAdmin", "Organization Admin", "checkbox"],
       ["workgroupAdmin", "Workgroup Admin", "checkbox"],
-      ["adminGroupId", "Admin Workgroup ID", "text"],
+      ["adminWorkgroupId", "Admin Workgroup ID", "text"],
     ],
   },
   roles: {
@@ -81,7 +94,9 @@ export const RESOURCE_DEFS = {
     listKey: "items",
     singleKey: "item",
     idField: "id",
+    supportsWorkgroupScope: true,
     fields: [
+      ["workgroupId", "Workgroup ID", "text"],
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
       ["url", "URL", "text"],
@@ -96,7 +111,9 @@ export const RESOURCE_DEFS = {
     listKey: "images",
     singleKey: "image",
     idField: "id",
+    supportsWorkgroupScope: true,
     fields: [
+      ["workgroupId", "Workgroup ID", "text"],
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
       ["categoryId", "Category ID", "text"],
@@ -108,7 +125,9 @@ export const RESOURCE_DEFS = {
     listKey: "lists",
     singleKey: "list",
     idField: "id",
+    supportsWorkgroupScope: true,
     fields: [
+      ["workgroupId", "Workgroup ID", "text"],
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
       ["categoryId", "Category ID", "text"],
@@ -120,11 +139,13 @@ export const RESOURCE_DEFS = {
     listKey: "elections",
     singleKey: "election",
     idField: "id",
+    supportsWorkgroupScope: true,
     fields: [
+      ["workgroupId", "Workgroup ID", "text"],
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
       ["listId", "List ID", "text"],
-      ["groupId", "Workgroup ID", "text"],
+      ["groupId", "Audience Group ID", "text"],
       ["categoryId", "Category ID", "text"],
       ["imageId", "Image ID", "text"],
       ["electionType", "Election Type", "number"],

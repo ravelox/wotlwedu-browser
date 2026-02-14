@@ -8,6 +8,10 @@ import AIWorkbenchPage from "./pages/AIWorkbenchPage";
 import { createApi } from "./lib/api";
 import { clearSession, getSession, setSession } from "./lib/session";
 import { RESOURCE_DEFS } from "./lib/resourceDefs";
+import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope";
+
+const DEFAULT_API_BASE_URL =
+  import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
 
 function RequireAuth({ session, children }) {
   const location = useLocation();
@@ -21,7 +25,11 @@ export default function App() {
   const navigate = useNavigate();
   const [session, setSessionState] = useState(getSession());
   const [baseUrl, setBaseUrl] = useState(
-    localStorage.getItem("wotlwedu_browser_api") || "https://api.wotlwedu.com:9876"
+    localStorage.getItem("wotlwedu_browser_api") || DEFAULT_API_BASE_URL
+  );
+  const hasApiOverride = localStorage.getItem("wotlwedu_browser_api") !== null;
+  const [activeWorkgroupId, setActiveWorkgroupIdState] = useState(
+    getActiveWorkgroupId()
   );
 
   const api = useMemo(() => {
@@ -35,32 +43,51 @@ export default function App() {
   }, [baseUrl, navigate, session?.authToken]);
 
   const onLogin = (payload) => {
+    const loginData = payload?.data ? payload.data : payload;
     const nextSession = {
-      authToken: payload.authToken,
-      refreshToken: payload.refreshToken,
-      userId: payload.userId,
-      email: payload.email,
-      alias: payload.alias,
-      systemAdmin: payload.systemAdmin === true,
-      organizationAdmin: payload.organizationAdmin === true,
-      workgroupAdmin: payload.workgroupAdmin === true,
-      organizationId: payload.organizationId || null,
-      adminWorkgroupId: payload.adminWorkgroupId || null,
+      authToken: loginData?.authToken,
+      refreshToken: loginData?.refreshToken,
+      userId: loginData?.userId,
+      email: loginData?.email,
+      alias: loginData?.alias,
+      systemAdmin: loginData?.systemAdmin === true,
+      organizationAdmin: loginData?.organizationAdmin === true,
+      workgroupAdmin: loginData?.workgroupAdmin === true,
+      organizationId: loginData?.organizationId || null,
+      adminWorkgroupId: loginData?.adminWorkgroupId || null,
     };
     setSession(nextSession);
     setSessionState(nextSession);
+    // If the user is a workgroup admin and no scope is set yet, default to their admin workgroup.
+    if (!getActiveWorkgroupId() && nextSession.workgroupAdmin && nextSession.adminWorkgroupId) {
+      setActiveWorkgroupId(nextSession.adminWorkgroupId);
+      setActiveWorkgroupIdState(nextSession.adminWorkgroupId);
+    }
     navigate("/dashboard", { replace: true });
   };
 
   const onLogout = () => {
     clearSession();
     setSessionState(null);
+    setActiveWorkgroupId(null);
+    setActiveWorkgroupIdState(null);
     navigate("/login", { replace: true });
   };
 
   const ResourceRoute = (key) => {
     const def = RESOURCE_DEFS[key];
-    return <ResourcePage api={api} definition={def} />;
+    return (
+      <ResourcePage
+        api={api}
+        definition={def}
+        scope={{ activeWorkgroupId }}
+      />
+    );
+  };
+
+  const onResetApiUrl = () => {
+    localStorage.removeItem("wotlwedu_browser_api");
+    setBaseUrl(DEFAULT_API_BASE_URL);
   };
 
   return (
@@ -71,7 +98,16 @@ export default function App() {
         path="/*"
         element={
           <RequireAuth session={session}>
-            <Shell session={session} onLogout={onLogout}>
+            <Shell
+              session={session}
+              onLogout={onLogout}
+              api={api}
+              activeWorkgroupId={activeWorkgroupId}
+              onChangeActiveWorkgroupId={(id) => {
+                setActiveWorkgroupId(id);
+                setActiveWorkgroupIdState(id);
+              }}
+            >
               <div className="api-bar">
                 <label>
                   API Base URL
@@ -84,12 +120,23 @@ export default function App() {
                     }}
                   />
                 </label>
+                <div className="api-bar-actions">
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={onResetApiUrl}
+                    disabled={!hasApiOverride && baseUrl === DEFAULT_API_BASE_URL}
+                  >
+                    Reset to Default
+                  </button>
+                </div>
               </div>
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage api={api} />} />
                 <Route path="/organizations" element={ResourceRoute("organizations")} />
                 <Route path="/workgroups" element={ResourceRoute("workgroups")} />
+                <Route path="/groups" element={ResourceRoute("groups")} />
                 <Route path="/users" element={ResourceRoute("users")} />
                 <Route path="/roles" element={ResourceRoute("roles")} />
                 <Route path="/capabilities" element={ResourceRoute("capabilities")} />
