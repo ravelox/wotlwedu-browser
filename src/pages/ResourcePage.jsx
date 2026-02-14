@@ -13,6 +13,7 @@ export default function ResourcePage({ api, definition, scope }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
+  const [scopedOrganizationId, setScopedOrganizationId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -143,6 +144,38 @@ export default function ResourcePage({ api, definition, scope }) {
   useEffect(() => {
     setForm(newRecord);
   }, [newRecord]);
+
+  // For the Users pane: if a workgroup scope is selected, default the new-user organizationId
+  // to the selected workgroup's organizationId (without overwriting user input).
+  useEffect(() => {
+    let cancelled = false;
+    async function loadScopedOrgId() {
+      setScopedOrganizationId(null);
+      if (!api) return;
+      if (definition.path !== "/user") return;
+      if (!scope?.activeWorkgroupId) return;
+      const response = await api.get(`/workgroup/${scope.activeWorkgroupId}`);
+      const workgroup = response.data?.data?.workgroup || response.data?.workgroup;
+      const orgId = workgroup?.organizationId || null;
+      if (!cancelled) setScopedOrganizationId(orgId);
+    }
+    loadScopedOrgId().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [api, definition.path, scope?.activeWorkgroupId]);
+
+  useEffect(() => {
+    if (definition.path !== "/user") return;
+    if (!scope?.activeWorkgroupId) return;
+    if (selectedId) return; // editing an existing user
+    if (!scopedOrganizationId) return;
+    setForm((prev) => {
+      if (!Object.prototype.hasOwnProperty.call(prev, "organizationId")) return prev;
+      if (prev.organizationId && String(prev.organizationId).trim() !== "") return prev;
+      return { ...prev, organizationId: scopedOrganizationId };
+    });
+  }, [definition.path, scope?.activeWorkgroupId, selectedId, scopedOrganizationId]);
 
   useEffect(() => {
     listRows();
