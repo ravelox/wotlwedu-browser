@@ -13,7 +13,6 @@ Current version: `0.1.3`
   - users
   - roles and capabilities
 - CRUD management screens for categories, items, images, lists, elections, votes, notifications, and preferences.
-- AI workbench to call `/ai/*` endpoints directly.
 - Dashboard with health/status, ping, unread notification count, and smart defaults.
 
 ## Tech stack
