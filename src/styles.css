@@ -163,6 +163,29 @@ input[type="checkbox"] {
   gap: 8px;
 }
 
+.capability-picker {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfdff;
+  max-height: 280px;
+  overflow: auto;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.capability-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.capability-option:hover {
+  background: #f3f8ff;
+}
+
 .btn {
   border: none;
   border-radius: 10px;

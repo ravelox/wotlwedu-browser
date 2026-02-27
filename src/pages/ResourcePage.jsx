@@ -14,6 +14,9 @@ export default function ResourcePage({ api, definition, scope }) {
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
   const [uploadFile, setUploadFile] = useState(null);
+  const [allCapabilities, setAllCapabilities] = useState([]);
+  const [selectedCapabilityIds, setSelectedCapabilityIds] = useState([]);
+  const [initialCapabilityIds, setInitialCapabilityIds] = useState([]);
   const [scopedOrganizationId, setScopedOrganizationId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -23,6 +26,7 @@ export default function ResourcePage({ api, definition, scope }) {
 
   const fields = definition.fields;
   const idField = definition.idField;
+  const isRoleResource = definition.path === "/role";
 
   const newRecord = useMemo(() => {
     const next = {};
@@ -63,18 +67,43 @@ export default function ResourcePage({ api, definition, scope }) {
     }
   };
 
+  const listCapabilities = async () => {
+    if (!isRoleResource) return;
+    try {
+      const response = await api.get("/capability", {
+        params: { page: 1, items: 1000 },
+      });
+      if (response.status >= 400) throw toApiError(response, "Failed to load capabilities");
+      const items =
+        response.data?.data?.capabilities || response.data?.capabilities || [];
+      setAllCapabilities(Array.isArray(items) ? items : []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const loadSingle = async (id) => {
     if (!id) return;
     setLoading(true);
     setError("");
     try {
-      const response = await api.get(`${definition.path}/${id}`);
+      const response = await api.get(`${definition.path}/${id}`, {
+        params: isRoleResource ? { detail: "capability" } : undefined,
+      });
       if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title} item`);
       const entity = response.data?.data?.[definition.singleKey] || response.data?.[definition.singleKey];
       if (!entity) return;
       const next = { ...newRecord };
       for (const [key, , type] of fields) {
         next[key] = coerceValue(type, entity[key]);
+      }
+      if (isRoleResource) {
+        const roleCaps = Array.isArray(entity.capabilities) ? entity.capabilities : [];
+        const capIds = roleCaps
+          .map((cap) => cap?.id)
+          .filter((capId) => typeof capId === "string" && capId.length > 0);
+        setSelectedCapabilityIds(capIds);
+        setInitialCapabilityIds(capIds);
       }
       setForm(next);
       setSelectedId(id);
@@ -83,6 +112,35 @@ export default function ResourcePage({ api, definition, scope }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const syncRoleCapabilities = async (roleId) => {
+    if (!isRoleResource || !roleId) return;
+
+    const nextSet = new Set(selectedCapabilityIds);
+    const currentSet = new Set(initialCapabilityIds);
+    const toAdd = selectedCapabilityIds.filter((capId) => !currentSet.has(capId));
+    const toDelete = initialCapabilityIds.filter((capId) => !nextSet.has(capId));
+
+    if (toDelete.length > 0) {
+      const response = await api.put(`/role/${roleId}/bulkcapdel`, {
+        capabilityList: toDelete,
+      });
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to remove role capabilities");
+      }
+    }
+
+    if (toAdd.length > 0) {
+      const response = await api.put(`/role/${roleId}/bulkcapadd`, {
+        capabilityList: toAdd,
+      });
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to add role capabilities");
+      }
+    }
+
+    setInitialCapabilityIds([...selectedCapabilityIds]);
   };
 
   const onSave = async () => {
@@ -111,8 +169,17 @@ export default function ResourcePage({ api, definition, scope }) {
         : await api.post(definition.path, payload);
 
       if (response.status >= 400) throw toApiError(response, `Failed to save ${definition.title}`);
+      if (isRoleResource) {
+        const savedRoleId =
+          response.data?.data?.role?.id || response.data?.role?.id || selectedId;
+        await syncRoleCapabilities(savedRoleId);
+      }
       setSuccess(`${definition.title} saved`);
-      if (!selectedId) setForm(newRecord);
+      if (!selectedId) {
+        setForm(newRecord);
+        setSelectedCapabilityIds([]);
+        setInitialCapabilityIds([]);
+      }
       await listRows();
     } catch (err) {
       setError(err.message);
@@ -134,6 +201,8 @@ export default function ResourcePage({ api, definition, scope }) {
       setSuccess(`${definition.title} deleted`);
       setSelectedId(null);
       setForm(newRecord);
+      setSelectedCapabilityIds([]);
+      setInitialCapabilityIds([]);
       await listRows();
     } catch (err) {
       setError(err.message);
@@ -179,6 +248,11 @@ export default function ResourcePage({ api, definition, scope }) {
   useEffect(() => {
     setForm(newRecord);
     setUploadFile(null);
+    if (!isRoleResource) {
+      setAllCapabilities([]);
+      setSelectedCapabilityIds([]);
+      setInitialCapabilityIds([]);
+    }
   }, [newRecord]);
 
   // For the Users pane: if a workgroup scope is selected, default the new-user organizationId
@@ -217,6 +291,10 @@ export default function ResourcePage({ api, definition, scope }) {
     listRows();
   }, [scope?.activeWorkgroupId]);
 
+  useEffect(() => {
+    listCapabilities();
+  }, [definition.path]);
+
   return (
     <div className="resource-grid">
       <div className="panel panel-table">
@@ -235,6 +313,10 @@ export default function ResourcePage({ api, definition, scope }) {
                 setSelectedId(null);
                 setForm(newRecord);
                 setUploadFile(null);
+                if (isRoleResource) {
+                  setSelectedCapabilityIds([]);
+                  setInitialCapabilityIds([]);
+                }
                 setSuccess("");
                 setError("");
               }}
@@ -322,6 +404,37 @@ export default function ResourcePage({ api, definition, scope }) {
                     Create/save the image record first to get an ID.
                   </span>
                 )}
+              </div>
+            </div>
+          )}
+
+          {isRoleResource && (
+            <div className="field field-full">
+              <span>Capabilities ({selectedCapabilityIds.length})</span>
+              <div className="capability-picker">
+                {allCapabilities.map((cap) => {
+                  const capId = cap?.id;
+                  if (!capId) return null;
+                  const checked = selectedCapabilityIds.includes(capId);
+                  return (
+                    <label key={capId} className="capability-option">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setSelectedCapabilityIds((prev) => {
+                            const next = new Set(prev);
+                            if (isChecked) next.add(capId);
+                            else next.delete(capId);
+                            return [...next];
+                          });
+                        }}
+                      />
+                      <span>{cap.name || capId}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           )}
