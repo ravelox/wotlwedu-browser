@@ -243,6 +243,16 @@ input[type="checkbox"] {
 }
 .login-card p { color: var(--muted); }
 .login-card form { display: grid; gap: 10px; }
+.password-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.password-row .btn {
+  min-width: 74px;
+  padding: 8px 10px;
+}
 
 .ai-grid {
   display: grid;
