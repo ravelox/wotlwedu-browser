@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.4 - 2026-02-28
+- Add a Helm chart under `helm/wotlwedu-browser` for Kubernetes deployment, matching the browser app's current NGINX/HTTP container model.
+- Add `.helmignore` and optional per-environment Helm service/ingress overrides.
+
 ## 0.1.3 - 2026-02-27
 - Update compatibility notes for backend category behavior:
 - Category assignment is user-scoped per authenticated user.
