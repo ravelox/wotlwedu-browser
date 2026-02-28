@@ -15,6 +15,7 @@ export default function ResourcePage({ api, definition, scope }) {
   const [form, setForm] = useState({});
   const [uploadFile, setUploadFile] = useState(null);
   const [allCapabilities, setAllCapabilities] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState([]);
   const [initialCapabilityIds, setInitialCapabilityIds] = useState([]);
   const [scopedOrganizationId, setScopedOrganizationId] = useState(null);
@@ -27,6 +28,7 @@ export default function ResourcePage({ api, definition, scope }) {
   const fields = definition.fields;
   const idField = definition.idField;
   const isRoleResource = definition.path === "/role";
+  const hasCategoryField = fields.some(([key]) => key === "categoryId");
 
   const newRecord = useMemo(() => {
     const next = {};
@@ -77,6 +79,24 @@ export default function ResourcePage({ api, definition, scope }) {
       const items =
         response.data?.data?.capabilities || response.data?.capabilities || [];
       setAllCapabilities(Array.isArray(items) ? items : []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const listCategories = async () => {
+    if (!hasCategoryField) {
+      setAllCategories([]);
+      return;
+    }
+    try {
+      const response = await api.get("/category", {
+        params: { page: 1, items: 1000 },
+      });
+      if (response.status >= 400) throw toApiError(response, "Failed to load categories");
+      const items =
+        response.data?.data?.categories || response.data?.categories || [];
+      setAllCategories(Array.isArray(items) ? items : []);
     } catch (err) {
       setError(err.message);
     }
@@ -295,6 +315,10 @@ export default function ResourcePage({ api, definition, scope }) {
     listCapabilities();
   }, [definition.path]);
 
+  useEffect(() => {
+    listCategories();
+  }, [definition.path]);
+
   return (
     <div className="resource-grid">
       <div className="panel panel-table">
@@ -363,6 +387,18 @@ export default function ResourcePage({ api, definition, scope }) {
               <span>{label}</span>
               {type === "textarea" ? (
                 <textarea value={form[key] ?? ""} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))} />
+              ) : key === "categoryId" ? (
+                <select
+                  value={form[key] ?? ""}
+                  onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+                >
+                  <option value="">None</option>
+                  {allCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name || category.id}
+                    </option>
+                  ))}
+                </select>
               ) : type === "checkbox" ? (
                 <input
                   type="checkbox"
