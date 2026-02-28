@@ -87,6 +87,7 @@ export const RESOURCE_DEFS = {
     fields: [
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
+      ["creator", "Owner User ID", "text"],
     ],
   },
   items: {

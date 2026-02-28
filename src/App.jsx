@@ -82,6 +82,7 @@ export default function App() {
         key={key}
         api={api}
         definition={def}
+        session={session}
         scope={{ activeWorkgroupId }}
       />
     );

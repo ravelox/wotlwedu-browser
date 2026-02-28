@@ -3,6 +3,8 @@
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
 ## Unreleased
+- Let system admins manage categories on a per-user basis by selecting the category owner in the Categories pane.
+- When editing category-enabled objects, load category choices from the object owner's category list instead of the currently logged-in admin's categories.
 
 ## 0.1.4 - 2026-02-28
 - Add a Helm chart under `helm/wotlwedu-browser` for Kubernetes deployment, matching the browser app's current NGINX/HTTP container model.

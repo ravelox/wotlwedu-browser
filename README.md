@@ -2,7 +2,7 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.4`
+Current version: `0.1.5`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).
@@ -77,5 +77,7 @@ Notes:
 - Some backend flows are specialized (for example full 2FA bootstrap/enable and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.
 - Authorization is enforced by backend capabilities and tenant/workgroup scope.
 - Category assignment is user-scoped in the backend; submitted `categoryId` values must belong to the authenticated user.
+- When a system admin edits categories, the Categories pane can now target a specific category owner.
+- When a system admin edits an item/image/list/group/workgroup/election, the category dropdown is populated from the categories owned by that object's creator.
 - Category-enabled collection endpoints can return grouped category menus via `?collapsible=true`.
 - Workgroup/organization IDs are optional in many flows; backend normalizes placeholder values (`""`, `"undefined"`, `"null"`).

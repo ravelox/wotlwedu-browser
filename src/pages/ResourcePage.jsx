@@ -9,16 +9,18 @@ function coerceValue(type, value) {
   return value ?? "";
 }
 
-export default function ResourcePage({ api, definition, scope }) {
+export default function ResourcePage({ api, definition, session, scope }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
   const [uploadFile, setUploadFile] = useState(null);
   const [allCapabilities, setAllCapabilities] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState([]);
   const [initialCapabilityIds, setInitialCapabilityIds] = useState([]);
   const [scopedOrganizationId, setScopedOrganizationId] = useState(null);
+  const [categoryOwnerId, setCategoryOwnerId] = useState(session?.userId || "");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -28,21 +30,48 @@ export default function ResourcePage({ api, definition, scope }) {
   const fields = definition.fields;
   const idField = definition.idField;
   const isRoleResource = definition.path === "/role";
+  const isCategoryResource = definition.path === "/category";
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
+  const canChooseCategoryOwner = session?.systemAdmin === true;
 
   const newRecord = useMemo(() => {
     const next = {};
     for (const [key, , type] of fields) {
       next[key] = type === "checkbox" ? false : "";
     }
-    // Default workgroupId for workgroup-scoped resources when the caller has a selected scope.
     if (definition.supportsWorkgroupScope && scope?.activeWorkgroupId) {
       if (Object.prototype.hasOwnProperty.call(next, "workgroupId")) {
         next.workgroupId = scope.activeWorkgroupId;
       }
     }
+    if (isCategoryResource && Object.prototype.hasOwnProperty.call(next, "creator")) {
+      next.creator = session?.userId || "";
+    }
     return next;
-  }, [fields, definition.supportsWorkgroupScope, scope?.activeWorkgroupId]);
+  }, [
+    fields,
+    definition.supportsWorkgroupScope,
+    scope?.activeWorkgroupId,
+    isCategoryResource,
+    session?.userId,
+  ]);
+
+  const loadUsers = async () => {
+    if (!canChooseCategoryOwner) {
+      setAllUsers([]);
+      return;
+    }
+    try {
+      const response = await api.get("/user", {
+        params: { page: 1, items: 1000 },
+      });
+      if (response.status >= 400) throw toApiError(response, "Failed to load users");
+      const items = response.data?.data?.users || response.data?.users || [];
+      setAllUsers(Array.isArray(items) ? items : []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   const listRows = async () => {
     setLoading(true);
@@ -53,6 +82,10 @@ export default function ResourcePage({ api, definition, scope }) {
           page: 1,
           items: 100,
           filter: filter || undefined,
+          creator:
+            isCategoryResource && canChooseCategoryOwner && categoryOwnerId
+              ? categoryOwnerId
+              : undefined,
           workgroupId:
             definition.supportsWorkgroupScope && scope?.activeWorkgroupId
               ? scope.activeWorkgroupId
@@ -84,14 +117,23 @@ export default function ResourcePage({ api, definition, scope }) {
     }
   };
 
-  const listCategories = async () => {
-    if (!hasCategoryField) {
+  const listCategories = async (ownerId) => {
+    if (!hasCategoryField && !isCategoryResource) {
       setAllCategories([]);
       return;
     }
+
+    const effectiveOwnerId =
+      ownerId || (isCategoryResource ? categoryOwnerId : selectedId ? categoryOwnerId : session?.userId);
+
     try {
       const response = await api.get("/category", {
-        params: { page: 1, items: 1000 },
+        params: {
+          page: 1,
+          items: 1000,
+          creator:
+            canChooseCategoryOwner && effectiveOwnerId ? effectiveOwnerId : undefined,
+        },
       });
       if (response.status >= 400) throw toApiError(response, "Failed to load categories");
       const items =
@@ -125,6 +167,17 @@ export default function ResourcePage({ api, definition, scope }) {
         setSelectedCapabilityIds(capIds);
         setInitialCapabilityIds(capIds);
       }
+
+      const ownerId =
+        entity.creator ||
+        next.creator ||
+        session?.userId ||
+        "";
+      setCategoryOwnerId(ownerId);
+      if (hasCategoryField) {
+        await listCategories(ownerId);
+      }
+
       setForm(next);
       setSelectedId(id);
     } catch (err) {
@@ -173,8 +226,6 @@ export default function ResourcePage({ api, definition, scope }) {
         payload[key] = coerceValue(type, form[key]);
       }
 
-      // If the UI has an active workgroup scope and this resource is workgroup-scoped,
-      // default payload.workgroupId on create when the user hasn't specified it.
       if (
         !selectedId &&
         definition.supportsWorkgroupScope &&
@@ -182,6 +233,10 @@ export default function ResourcePage({ api, definition, scope }) {
         (!payload.workgroupId || payload.workgroupId === "")
       ) {
         payload.workgroupId = scope.activeWorkgroupId;
+      }
+
+      if (isCategoryResource && canChooseCategoryOwner) {
+        payload.creator = categoryOwnerId || payload.creator || session?.userId || "";
       }
 
       const response = selectedId
@@ -196,7 +251,15 @@ export default function ResourcePage({ api, definition, scope }) {
       }
       setSuccess(`${definition.title} saved`);
       if (!selectedId) {
-        setForm(newRecord);
+        const resetOwnerId = session?.userId || "";
+        setForm({
+          ...newRecord,
+          ...(isCategoryResource ? { creator: resetOwnerId } : {}),
+        });
+        setCategoryOwnerId(resetOwnerId);
+        if (hasCategoryField) {
+          await listCategories(resetOwnerId);
+        }
         setSelectedCapabilityIds([]);
         setInitialCapabilityIds([]);
       }
@@ -220,7 +283,15 @@ export default function ResourcePage({ api, definition, scope }) {
       if (response.status >= 400) throw toApiError(response, `Failed to delete ${definition.title}`);
       setSuccess(`${definition.title} deleted`);
       setSelectedId(null);
-      setForm(newRecord);
+      const resetOwnerId = session?.userId || "";
+      setCategoryOwnerId(resetOwnerId);
+      setForm({
+        ...newRecord,
+        ...(isCategoryResource ? { creator: resetOwnerId } : {}),
+      });
+      if (hasCategoryField) {
+        await listCategories(resetOwnerId);
+      }
       setSelectedCapabilityIds([]);
       setInitialCapabilityIds([]);
       await listRows();
@@ -266,17 +337,20 @@ export default function ResourcePage({ api, definition, scope }) {
   };
 
   useEffect(() => {
-    setForm(newRecord);
+    const resetOwnerId = session?.userId || "";
+    setForm({
+      ...newRecord,
+      ...(isCategoryResource ? { creator: resetOwnerId } : {}),
+    });
+    setCategoryOwnerId(resetOwnerId);
     setUploadFile(null);
     if (!isRoleResource) {
       setAllCapabilities([]);
       setSelectedCapabilityIds([]);
       setInitialCapabilityIds([]);
     }
-  }, [newRecord]);
+  }, [newRecord, isCategoryResource, isRoleResource, session?.userId]);
 
-  // For the Users pane: if a workgroup scope is selected, default the new-user organizationId
-  // to the selected workgroup's organizationId (without overwriting user input).
   useEffect(() => {
     let cancelled = false;
     async function loadScopedOrgId() {
@@ -298,7 +372,7 @@ export default function ResourcePage({ api, definition, scope }) {
   useEffect(() => {
     if (definition.path !== "/user") return;
     if (!scope?.activeWorkgroupId) return;
-    if (selectedId) return; // editing an existing user
+    if (selectedId) return;
     if (!scopedOrganizationId) return;
     setForm((prev) => {
       if (!Object.prototype.hasOwnProperty.call(prev, "organizationId")) return prev;
@@ -309,15 +383,23 @@ export default function ResourcePage({ api, definition, scope }) {
 
   useEffect(() => {
     listRows();
-  }, [scope?.activeWorkgroupId]);
+  }, [scope?.activeWorkgroupId, categoryOwnerId]);
 
   useEffect(() => {
     listCapabilities();
   }, [definition.path]);
 
   useEffect(() => {
-    listCategories();
-  }, [definition.path]);
+    loadUsers();
+  }, [canChooseCategoryOwner]);
+
+  useEffect(() => {
+    if (hasCategoryField && !selectedId) {
+      listCategories(session?.userId || "");
+    } else if (isCategoryResource) {
+      listCategories(categoryOwnerId || session?.userId || "");
+    }
+  }, [definition.path, session?.userId]);
 
   return (
     <div className="resource-grid">
@@ -330,13 +412,34 @@ export default function ResourcePage({ api, definition, scope }) {
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Filter"
             />
+            {isCategoryResource && canChooseCategoryOwner && (
+              <select
+                value={categoryOwnerId || ""}
+                onChange={(e) => setCategoryOwnerId(e.target.value)}
+              >
+                <option value="">(all category owners)</option>
+                {allUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.fullName || user.alias || user.email || user.id}
+                  </option>
+                ))}
+              </select>
+            )}
             <button className="btn" onClick={listRows}>Search</button>
             <button
               className="btn btn-secondary"
-              onClick={() => {
+              onClick={async () => {
+                const resetOwnerId = session?.userId || "";
                 setSelectedId(null);
-                setForm(newRecord);
+                setForm({
+                  ...newRecord,
+                  ...(isCategoryResource ? { creator: resetOwnerId } : {}),
+                });
+                setCategoryOwnerId(resetOwnerId);
                 setUploadFile(null);
+                if (hasCategoryField) {
+                  await listCategories(resetOwnerId);
+                }
                 if (isRoleResource) {
                   setSelectedCapabilityIds([]);
                   setInitialCapabilityIds([]);
@@ -382,6 +485,14 @@ export default function ResourcePage({ api, definition, scope }) {
         <SuccessBanner message={success} />
 
         <div className="form-grid">
+          {hasCategoryField && (
+            <div className="field field-full">
+              <span>
+                Category choices for owner: <strong>{categoryOwnerId || session?.userId || "current user"}</strong>
+              </span>
+            </div>
+          )}
+
           {fields.map(([key, label, type]) => (
             <label key={key} className={type === "textarea" ? "field field-full" : "field"}>
               <span>{label}</span>
@@ -396,6 +507,22 @@ export default function ResourcePage({ api, definition, scope }) {
                   {allCategories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name || category.id}
+                    </option>
+                  ))}
+                </select>
+              ) : key === "creator" && isCategoryResource && canChooseCategoryOwner ? (
+                <select
+                  value={form[key] ?? categoryOwnerId ?? ""}
+                  onChange={(e) => {
+                    const nextOwnerId = e.target.value;
+                    setForm((p) => ({ ...p, [key]: nextOwnerId }));
+                    setCategoryOwnerId(nextOwnerId);
+                  }}
+                >
+                  <option value="">Select owner</option>
+                  {allUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.fullName || user.alias || user.email || user.id}
                     </option>
                   ))}
                 </select>
