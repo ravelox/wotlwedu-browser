@@ -13,6 +13,8 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
+  const [organizationQuery, setOrganizationQuery] = useState("");
+  const [allOrganizations, setAllOrganizations] = useState([]);
   const [uploadFile, setUploadFile] = useState(null);
   const [allCapabilities, setAllCapabilities] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
@@ -31,6 +33,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const idField = definition.idField;
   const isRoleResource = definition.path === "/role";
   const isCategoryResource = definition.path === "/category";
+  const hasOrganizationCombobox = fields.some(([, , type]) => type === "organization-combobox");
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
   const canChooseCategoryOwner = session?.systemAdmin === true;
 
@@ -68,6 +71,24 @@ export default function ResourcePage({ api, definition, session, scope }) {
       if (response.status >= 400) throw toApiError(response, "Failed to load users");
       const items = response.data?.data?.users || response.data?.users || [];
       setAllUsers(Array.isArray(items) ? items : []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const listOrganizations = async () => {
+    if (!hasOrganizationCombobox) {
+      setAllOrganizations([]);
+      return;
+    }
+    try {
+      const response = await api.get("/organization", {
+        params: { page: 1, items: 1000 },
+      });
+      if (response.status >= 400) throw toApiError(response, "Failed to load organizations");
+      const items =
+        response.data?.data?.organizations || response.data?.organizations || [];
+      setAllOrganizations(Array.isArray(items) ? items : []);
     } catch (err) {
       setError(err.message);
     }
@@ -256,6 +277,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
           ...newRecord,
           ...(isCategoryResource ? { creator: resetOwnerId } : {}),
         });
+        setOrganizationQuery("");
         setCategoryOwnerId(resetOwnerId);
         if (hasCategoryField) {
           await listCategories(resetOwnerId);
@@ -289,6 +311,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
         ...newRecord,
         ...(isCategoryResource ? { creator: resetOwnerId } : {}),
       });
+      setOrganizationQuery("");
       if (hasCategoryField) {
         await listCategories(resetOwnerId);
       }
@@ -342,6 +365,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
       ...newRecord,
       ...(isCategoryResource ? { creator: resetOwnerId } : {}),
     });
+    setOrganizationQuery("");
     setCategoryOwnerId(resetOwnerId);
     setUploadFile(null);
     if (!isRoleResource) {
@@ -390,6 +414,10 @@ export default function ResourcePage({ api, definition, session, scope }) {
   }, [definition.path]);
 
   useEffect(() => {
+    listOrganizations();
+  }, [definition.path]);
+
+  useEffect(() => {
     loadUsers();
   }, [canChooseCategoryOwner]);
 
@@ -400,6 +428,20 @@ export default function ResourcePage({ api, definition, session, scope }) {
       listCategories(categoryOwnerId || session?.userId || "");
     }
   }, [definition.path, session?.userId]);
+
+  useEffect(() => {
+    if (!hasOrganizationCombobox) return;
+    const currentId = form.organizationId || "";
+    if (!currentId) {
+      if (organizationQuery !== "") setOrganizationQuery("");
+      return;
+    }
+    const organization = allOrganizations.find((org) => org.id === currentId);
+    const nextQuery = organization?.name || currentId;
+    if (nextQuery !== organizationQuery) {
+      setOrganizationQuery(nextQuery);
+    }
+  }, [allOrganizations, form.organizationId, hasOrganizationCombobox, organizationQuery]);
 
   return (
     <div className="resource-grid">
@@ -436,6 +478,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
                   ...(isCategoryResource ? { creator: resetOwnerId } : {}),
                 });
                 setCategoryOwnerId(resetOwnerId);
+                setOrganizationQuery("");
                 setUploadFile(null);
                 if (hasCategoryField) {
                   await listCategories(resetOwnerId);
@@ -526,6 +569,36 @@ export default function ResourcePage({ api, definition, session, scope }) {
                     </option>
                   ))}
                 </select>
+              ) : type === "organization-combobox" ? (
+                <>
+                  <input
+                    type="text"
+                    list="organization-name-options"
+                    value={organizationQuery}
+                    placeholder="Type organization name"
+                    onChange={(e) => {
+                      const query = e.target.value;
+                      const trimmed = query.trim();
+                      const byName = allOrganizations.find(
+                        (org) => (org.name || "").toLowerCase() === trimmed.toLowerCase()
+                      );
+                      const byId = allOrganizations.find((org) => org.id === trimmed);
+                      setOrganizationQuery(query);
+                      setForm((p) => ({
+                        ...p,
+                        [key]: byName?.id || byId?.id || "",
+                      }));
+                    }}
+                  />
+                  <datalist id="organization-name-options">
+                    {allOrganizations.map((organization) => (
+                      <option key={organization.id} value={organization.name || organization.id} />
+                    ))}
+                  </datalist>
+                  <small style={{ color: "var(--muted)" }}>
+                    {form[key] ? `Selected ID: ${form[key]}` : "Select an organization by name."}
+                  </small>
+                </>
               ) : type === "checkbox" ? (
                 <input
                   type="checkbox"

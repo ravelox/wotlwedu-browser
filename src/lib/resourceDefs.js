@@ -20,7 +20,7 @@ export const RESOURCE_DEFS = {
     fields: [
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
-      ["organizationId", "Organization ID", "text"],
+      ["organizationId", "Organization", "organization-combobox"],
       ["categoryId", "Category ID", "text"],
       ["listType", "List Type", "number"],
     ],
