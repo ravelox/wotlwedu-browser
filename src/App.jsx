@@ -11,6 +11,7 @@ import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope
 
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.7";
 
 function RequireAuth({ session, children }) {
   const location = useLocation();
@@ -95,7 +96,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage api={api} onLogin={onLogin} />} />
+      <Route path="/login" element={<LoginPage api={api} onLogin={onLogin} appVersion={APP_VERSION} />} />
 
       <Route
         path="/*"
@@ -105,6 +106,7 @@ export default function App() {
               session={session}
               onLogout={onLogout}
               api={api}
+              appVersion={APP_VERSION}
               activeWorkgroupId={activeWorkgroupId}
               onChangeActiveWorkgroupId={(id) => {
                 setActiveWorkgroupId(id);

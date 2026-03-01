@@ -25,6 +25,7 @@ export default function Shell({
   onLogout,
   children,
   api,
+  appVersion,
   activeWorkgroupId,
   onChangeActiveWorkgroupId,
 }) {
@@ -70,6 +71,7 @@ export default function Shell({
             </NavLink>
           ))}
         </nav>
+        <div className="sidebar-version">Version {appVersion}</div>
       </aside>
       <main className="main-content">
         <header className="topbar">

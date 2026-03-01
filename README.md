@@ -2,7 +2,7 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.6`
+Current version: `0.1.7`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).

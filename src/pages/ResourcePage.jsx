@@ -9,11 +9,18 @@ function coerceValue(type, value) {
   return value ?? "";
 }
 
+function singularizeTitle(title) {
+  if (!title) return "";
+  if (title.endsWith("ies")) return `${title.slice(0, -3)}y`;
+  if (title.endsWith("s")) return title.slice(0, -1);
+  return title;
+}
+
 export default function ResourcePage({ api, definition, session, scope }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
-  const [organizationQuery, setOrganizationQuery] = useState("");
+  const [comboQueries, setComboQueries] = useState({});
   const [allOrganizations, setAllOrganizations] = useState([]);
   const [uploadFile, setUploadFile] = useState(null);
   const [allCapabilities, setAllCapabilities] = useState([]);
@@ -34,6 +41,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const isRoleResource = definition.path === "/role";
   const isCategoryResource = definition.path === "/category";
   const hasOrganizationCombobox = fields.some(([, , type]) => type === "organization-combobox");
+  const hasUserCombobox = fields.some(([, , type]) => type === "user-combobox");
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
   const canChooseCategoryOwner = session?.systemAdmin === true;
 
@@ -60,7 +68,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
   ]);
 
   const loadUsers = async () => {
-    if (!canChooseCategoryOwner) {
+    if (!canChooseCategoryOwner && !hasUserCombobox) {
       setAllUsers([]);
       return;
     }
@@ -74,6 +82,18 @@ export default function ResourcePage({ api, definition, session, scope }) {
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const getOrganizationLabel = (organizationId) => {
+    if (!organizationId) return "";
+    const organization = allOrganizations.find((org) => org.id === organizationId);
+    return organization?.name || organizationId;
+  };
+
+  const getUserLabel = (userId) => {
+    if (!userId) return "";
+    const user = allUsers.find((entry) => entry.id === userId);
+    return user?.fullName || user?.alias || user?.email || user?.id || userId;
   };
 
   const listOrganizations = async () => {
@@ -200,6 +220,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
       }
 
       setForm(next);
+      setComboQueries({});
       setSelectedId(id);
     } catch (err) {
       setError(err.message);
@@ -235,6 +256,27 @@ export default function ResourcePage({ api, definition, session, scope }) {
     }
 
     setInitialCapabilityIds([...selectedCapabilityIds]);
+  };
+
+  const resetEditor = async () => {
+    const resetOwnerId = session?.userId || "";
+    setSelectedId(null);
+    setForm({
+      ...newRecord,
+      ...(isCategoryResource ? { creator: resetOwnerId } : {}),
+    });
+    setCategoryOwnerId(resetOwnerId);
+    setComboQueries({});
+    setUploadFile(null);
+    if (hasCategoryField) {
+      await listCategories(resetOwnerId);
+    }
+    if (isRoleResource) {
+      setSelectedCapabilityIds([]);
+      setInitialCapabilityIds([]);
+    }
+    setSuccess("");
+    setError("");
   };
 
   const onSave = async () => {
@@ -277,7 +319,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
           ...newRecord,
           ...(isCategoryResource ? { creator: resetOwnerId } : {}),
         });
-        setOrganizationQuery("");
+        setComboQueries({});
         setCategoryOwnerId(resetOwnerId);
         if (hasCategoryField) {
           await listCategories(resetOwnerId);
@@ -311,7 +353,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
         ...newRecord,
         ...(isCategoryResource ? { creator: resetOwnerId } : {}),
       });
-      setOrganizationQuery("");
+      setComboQueries({});
       if (hasCategoryField) {
         await listCategories(resetOwnerId);
       }
@@ -365,7 +407,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
       ...newRecord,
       ...(isCategoryResource ? { creator: resetOwnerId } : {}),
     });
-    setOrganizationQuery("");
+    setComboQueries({});
     setCategoryOwnerId(resetOwnerId);
     setUploadFile(null);
     if (!isRoleResource) {
@@ -419,7 +461,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
 
   useEffect(() => {
     loadUsers();
-  }, [canChooseCategoryOwner]);
+  }, [canChooseCategoryOwner, hasUserCombobox]);
 
   useEffect(() => {
     if (hasCategoryField && !selectedId) {
@@ -430,18 +472,27 @@ export default function ResourcePage({ api, definition, session, scope }) {
   }, [definition.path, session?.userId]);
 
   useEffect(() => {
-    if (!hasOrganizationCombobox) return;
-    const currentId = form.organizationId || "";
-    if (!currentId) {
-      if (organizationQuery !== "") setOrganizationQuery("");
-      return;
+    const nextQueries = {};
+    for (const [key, , type] of fields) {
+      if (type === "organization-combobox") {
+        nextQueries[key] = getOrganizationLabel(form[key] || "");
+      }
+      if (type === "user-combobox") {
+        nextQueries[key] = getUserLabel(form[key] || "");
+      }
     }
-    const organization = allOrganizations.find((org) => org.id === currentId);
-    const nextQuery = organization?.name || currentId;
-    if (nextQuery !== organizationQuery) {
-      setOrganizationQuery(nextQuery);
-    }
-  }, [allOrganizations, form.organizationId, hasOrganizationCombobox, organizationQuery]);
+    setComboQueries((prev) => {
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(nextQueries);
+      if (
+        prevKeys.length === nextKeys.length &&
+        nextKeys.every((key) => prev[key] === nextQueries[key])
+      ) {
+        return prev;
+      }
+      return nextQueries;
+    });
+  }, [fields, form, allOrganizations, allUsers]);
 
   return (
     <div className="resource-grid">
@@ -468,31 +519,14 @@ export default function ResourcePage({ api, definition, session, scope }) {
               </select>
             )}
             <button className="btn" onClick={listRows}>Search</button>
-            <button
-              className="btn btn-secondary"
-              onClick={async () => {
-                const resetOwnerId = session?.userId || "";
-                setSelectedId(null);
-                setForm({
-                  ...newRecord,
-                  ...(isCategoryResource ? { creator: resetOwnerId } : {}),
-                });
-                setCategoryOwnerId(resetOwnerId);
-                setOrganizationQuery("");
-                setUploadFile(null);
-                if (hasCategoryField) {
-                  await listCategories(resetOwnerId);
-                }
-                if (isRoleResource) {
-                  setSelectedCapabilityIds([]);
-                  setInitialCapabilityIds([]);
-                }
-                setSuccess("");
-                setError("");
-              }}
-            >
-              New
-            </button>
+            {selectedId && (
+              <button
+                className="btn btn-secondary"
+                onClick={resetEditor}
+              >
+                Clear Selection
+              </button>
+            )}
           </div>
         </div>
 
@@ -522,7 +556,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
 
       <div className="panel panel-form">
         <div className="panel-header">
-          <h3>{selectedId ? `Edit ${selectedId}` : `New ${definition.title.slice(0, -1)}`}</h3>
+          <h3>{selectedId ? `Edit ${selectedId}` : `New ${singularizeTitle(definition.title)}`}</h3>
         </div>
         <ErrorBanner error={error} />
         <SuccessBanner message={success} />
@@ -553,28 +587,12 @@ export default function ResourcePage({ api, definition, session, scope }) {
                     </option>
                   ))}
                 </select>
-              ) : key === "creator" && isCategoryResource && canChooseCategoryOwner ? (
-                <select
-                  value={form[key] ?? categoryOwnerId ?? ""}
-                  onChange={(e) => {
-                    const nextOwnerId = e.target.value;
-                    setForm((p) => ({ ...p, [key]: nextOwnerId }));
-                    setCategoryOwnerId(nextOwnerId);
-                  }}
-                >
-                  <option value="">Select owner</option>
-                  {allUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.fullName || user.alias || user.email || user.id}
-                    </option>
-                  ))}
-                </select>
               ) : type === "organization-combobox" ? (
                 <>
                   <input
                     type="text"
-                    list="organization-name-options"
-                    value={organizationQuery}
+                    list={`${key}-options`}
+                    value={comboQueries[key] ?? ""}
                     placeholder="Type organization name"
                     onChange={(e) => {
                       const query = e.target.value;
@@ -583,20 +601,56 @@ export default function ResourcePage({ api, definition, session, scope }) {
                         (org) => (org.name || "").toLowerCase() === trimmed.toLowerCase()
                       );
                       const byId = allOrganizations.find((org) => org.id === trimmed);
-                      setOrganizationQuery(query);
+                      setComboQueries((prev) => ({ ...prev, [key]: query }));
                       setForm((p) => ({
                         ...p,
                         [key]: byName?.id || byId?.id || "",
                       }));
                     }}
                   />
-                  <datalist id="organization-name-options">
+                  <datalist id={`${key}-options`}>
                     {allOrganizations.map((organization) => (
                       <option key={organization.id} value={organization.name || organization.id} />
                     ))}
                   </datalist>
                   <small style={{ color: "var(--muted)" }}>
                     {form[key] ? `Selected ID: ${form[key]}` : "Select an organization by name."}
+                  </small>
+                </>
+              ) : type === "user-combobox" ? (
+                <>
+                  <input
+                    type="text"
+                    list={`${key}-options`}
+                    value={comboQueries[key] ?? ""}
+                    placeholder="Type user name or email"
+                    onChange={(e) => {
+                      const query = e.target.value;
+                      const trimmed = query.trim();
+                      const byLabel = allUsers.find((user) => {
+                        const label =
+                          user.fullName || user.alias || user.email || user.id || "";
+                        return label.toLowerCase() === trimmed.toLowerCase();
+                      });
+                      const byId = allUsers.find((user) => user.id === trimmed);
+                      const nextUserId = byLabel?.id || byId?.id || "";
+                      setComboQueries((prev) => ({ ...prev, [key]: query }));
+                      setForm((p) => ({ ...p, [key]: nextUserId }));
+                      if (key === "creator" && isCategoryResource && canChooseCategoryOwner) {
+                        setCategoryOwnerId(nextUserId);
+                      }
+                    }}
+                  />
+                  <datalist id={`${key}-options`}>
+                    {allUsers.map((user) => (
+                      <option
+                        key={user.id}
+                        value={user.fullName || user.alias || user.email || user.id}
+                      />
+                    ))}
+                  </datalist>
+                  <small style={{ color: "var(--muted)" }}>
+                    {form[key] ? `Selected ID: ${form[key]}` : "Select a user by name, alias, or email."}
                   </small>
                 </>
               ) : type === "checkbox" ? (

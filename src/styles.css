@@ -30,6 +30,9 @@ body {
   color: #ecf3ff;
   padding: 18px 14px;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .brand-logo {
@@ -46,6 +49,13 @@ body {
 .brand p { margin: 6px 0 18px; color: #e7f0ff; font-size: 0.85rem; }
 
 nav { display: grid; gap: 6px; }
+.sidebar-version {
+  margin-top: auto;
+  padding: 10px 11px 4px;
+  color: #e7f0ff;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
 .nav-link {
   color: #cfe0f6;
   text-decoration: none;
@@ -221,6 +231,12 @@ input[type="checkbox"] {
   display: grid;
   place-items: center;
   background: linear-gradient(160deg, #3b5a93, #4d6dad, #8baae8);
+}
+
+.login-version {
+  margin: -2px 0 14px;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 .login-card {
   width: min(640px, 92vw);

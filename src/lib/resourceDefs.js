@@ -50,7 +50,7 @@ export const RESOURCE_DEFS = {
       ["lastName", "Last Name", "text"],
       ["alias", "Alias", "text"],
       ["email", "Email", "text"],
-      ["organizationId", "Organization ID", "text"],
+      ["organizationId", "Organization", "organization-combobox"],
       ["active", "Active", "checkbox"],
       ["verified", "Verified", "checkbox"],
       ["systemAdmin", "System Admin", "checkbox"],
@@ -87,7 +87,7 @@ export const RESOURCE_DEFS = {
     fields: [
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
-      ["creator", "Owner User ID", "text"],
+      ["creator", "Owner User ID", "user-combobox"],
     ],
   },
   items: {
@@ -164,7 +164,7 @@ export const RESOURCE_DEFS = {
     fields: [
       ["electionId", "Election ID", "text"],
       ["itemId", "Item ID", "text"],
-      ["userId", "User ID", "text"],
+      ["userId", "User ID", "user-combobox"],
       ["statusId", "Status ID", "number"],
     ],
   },
@@ -175,8 +175,8 @@ export const RESOURCE_DEFS = {
     singleKey: "notification",
     idField: "id",
     fields: [
-      ["userId", "User ID", "text"],
-      ["senderId", "Sender ID", "text"],
+      ["userId", "User ID", "user-combobox"],
+      ["senderId", "Sender ID", "user-combobox"],
       ["text", "Text", "textarea"],
       ["type", "Type", "text"],
       ["objectId", "Object ID", "text"],

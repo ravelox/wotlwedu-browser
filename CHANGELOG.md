@@ -2,10 +2,14 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
-## 0.1.6 - 2026-02-28
+## 0.1.7 - 2026-02-28
 - Let system admins manage categories on a per-user basis by selecting the category owner in the Categories pane.
 - When editing category-enabled objects, load category choices from the object owner's category list instead of the currently logged-in admin's categories.
 - Replace the New User `organizationId` text field with an organization-name typedown/combobox that resolves to the selected organization ID.
+- Add typedown comboboxes for organization and user ID fields across browser resource forms.
+- Show the browser app version on the login page and in the sidebar.
+- Replace the always-visible table `New` button with an edit-only `Clear Selection` action.
+- Fix singular form titles so Categories correctly render as `New Category`.
 
 ## 0.1.4 - 2026-02-28
 - Add a Helm chart under `helm/wotlwedu-browser` for Kubernetes deployment, matching the browser app's current NGINX/HTTP container model.

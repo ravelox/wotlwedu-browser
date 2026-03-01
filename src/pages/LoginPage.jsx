@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ErrorBanner } from "../components/Feedback";
 import logo from "../assets/logo.png";
 
-export default function LoginPage({ api, onLogin }) {
+export default function LoginPage({ api, onLogin, appVersion }) {
   const [email, setEmail] = useState("root@localhost.localdomain");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -81,6 +81,7 @@ export default function LoginPage({ api, onLogin }) {
         <img src={logo} alt="wotlwedu logo" className="login-logo" />
         <h1>wotlwedu Browser Console</h1>
         <p>Desktop management UI for the wotlwedu backend.</p>
+        <p className="login-version">Version {appVersion}</p>
         <ErrorBanner error={error} />
         {!pending2fa ? (
           <form onSubmit={submitCredentials}>
