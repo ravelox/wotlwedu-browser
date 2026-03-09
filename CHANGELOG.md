@@ -2,6 +2,10 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.9 - 2026-03-09
+- Harden client session persistence by validating/restoring token payloads defensively before use.
+- Keep Token Lab testing workflow support aligned with backend test-token mint/revoke behavior.
+
 ## 0.1.8 - 2026-03-09
 - Add a system-admin-only Token Lab page to mint testing bearer tokens via backend `POST /login/testtoken`.
 - Allow custom token lifetime input (`expiresInMinutes`) and support copying tokens directly from the UI.
