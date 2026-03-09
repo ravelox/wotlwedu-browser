@@ -4,6 +4,7 @@ import Shell from "./components/Shell";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import ResourcePage from "./pages/ResourcePage";
+import TokenLabPage from "./pages/TokenLabPage";
 import { createApi } from "./lib/api";
 import { clearSession, getSession, setSession } from "./lib/session";
 import { RESOURCE_DEFS } from "./lib/resourceDefs";
@@ -11,7 +12,7 @@ import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope
 
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.7";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.8";
 
 function RequireAuth({ session, children }) {
   const location = useLocation();
@@ -72,6 +73,33 @@ export default function App() {
     setActiveWorkgroupId(null);
     setActiveWorkgroupIdState(null);
     navigate("/login", { replace: true });
+  };
+
+  const onApplyToken = (payload) => {
+    const tokenData = payload?.data ? payload.data : payload;
+    if (!tokenData?.authToken || !tokenData?.userId) return;
+    const nextSession = {
+      authToken: tokenData.authToken,
+      refreshToken: null,
+      userId: tokenData.userId,
+      email: tokenData.email,
+      alias: tokenData.alias,
+      systemAdmin: tokenData.systemAdmin === true,
+      organizationAdmin: tokenData.organizationAdmin === true,
+      workgroupAdmin: tokenData.workgroupAdmin === true,
+      organizationId: tokenData.organizationId || null,
+      adminWorkgroupId: tokenData.adminWorkgroupId || null,
+    };
+    setSession(nextSession);
+    setSessionState(nextSession);
+
+    if (nextSession.workgroupAdmin && nextSession.adminWorkgroupId) {
+      setActiveWorkgroupId(nextSession.adminWorkgroupId);
+      setActiveWorkgroupIdState(nextSession.adminWorkgroupId);
+    } else {
+      setActiveWorkgroupId(null);
+      setActiveWorkgroupIdState(null);
+    }
   };
 
   const ResourceRoute = (key) => {
@@ -153,6 +181,10 @@ export default function App() {
                 <Route path="/votes" element={ResourceRoute("votes")} />
                 <Route path="/notifications" element={ResourceRoute("notifications")} />
                 <Route path="/preferences" element={ResourceRoute("preferences")} />
+                <Route
+                  path="/token-lab"
+                  element={<TokenLabPage api={api} session={session} onApplyToken={onApplyToken} />}
+                />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Shell>

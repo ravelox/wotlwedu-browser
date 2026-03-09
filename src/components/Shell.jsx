@@ -30,6 +30,9 @@ export default function Shell({
   onChangeActiveWorkgroupId,
 }) {
   const [workgroups, setWorkgroups] = useState([]);
+  const navItems = session?.systemAdmin
+    ? [...NAV_ITEMS, ["Token Lab", "/token-lab"]]
+    : NAV_ITEMS;
 
   useEffect(() => {
     let cancelled = false;
@@ -59,7 +62,7 @@ export default function Shell({
           <p>Browser Console</p>
         </div>
         <nav>
-          {NAV_ITEMS.map(([label, href]) => (
+          {navItems.map(([label, href]) => (
             <NavLink
               key={href}
               to={href}

@@ -2,7 +2,7 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.7`
+Current version: `0.1.8`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).
@@ -14,6 +14,7 @@ Current version: `0.1.7`
   - roles and capabilities
 - CRUD management screens for categories, items, images, lists, elections, votes, notifications, and preferences.
 - Dashboard with health/status, ping, unread notification count, and smart defaults.
+- System-admin Token Lab for minting short-lived testing bearer tokens with custom expiration.
 
 ## Tech stack
 - React 18
@@ -74,6 +75,7 @@ Notes:
 
 ## Notes
 - 2FA-enabled accounts are supported for login (the browser UI prompts for the one-time code after password verification).
+- System admins can open `Token Lab` to create test tokens for a target user by duration (`expiresInMinutes`), revoke issued test tokens, and optionally apply a token to the current session.
 - Some backend flows are specialized (for example full 2FA bootstrap/enable and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.
 - Authorization is enforced by backend capabilities and tenant/workgroup scope.
 - Category assignment is user-scoped in the backend; submitted `categoryId` values must belong to the authenticated user.
