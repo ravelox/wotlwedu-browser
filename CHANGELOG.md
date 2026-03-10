@@ -2,6 +2,10 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.10 - 2026-03-10
+- Update Token Lab token generation to use a typedown combobox for selecting user name.
+- Resolve combobox selection to user ID before minting test tokens.
+
 ## 0.1.9 - 2026-03-09
 - Harden client session persistence by validating/restoring token payloads defensively before use.
 - Keep Token Lab testing workflow support aligned with backend test-token mint/revoke behavior.

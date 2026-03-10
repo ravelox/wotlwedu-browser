@@ -1,14 +1,63 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import { toApiError } from "../lib/api";
 
 export default function TokenLabPage({ api, session, onApplyToken }) {
   const [targetUserId, setTargetUserId] = useState(session?.userId || "");
+  const [targetUserQuery, setTargetUserQuery] = useState("");
+  const [allUsers, setAllUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [expiresInMinutes, setExpiresInMinutes] = useState(60);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const getUserLabel = (user) => {
+    if (!user) return "";
+    return user.fullName || user.alias || user.email || user.id || "";
+  };
+
+  useEffect(() => {
+    if (session?.systemAdmin !== true) return;
+    let cancelled = false;
+    const loadUsers = async () => {
+      setUsersLoading(true);
+      try {
+        const response = await api.get("/user", {
+          params: { page: 1, items: 1000 },
+        });
+        if (response.status >= 400) {
+          throw toApiError(response, "Failed to load users");
+        }
+        const users = response.data?.data?.users || response.data?.users || [];
+        if (!cancelled) {
+          setAllUsers(Array.isArray(users) ? users : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message);
+        }
+      } finally {
+        if (!cancelled) {
+          setUsersLoading(false);
+        }
+      }
+    };
+    loadUsers();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, session?.systemAdmin]);
+
+  useEffect(() => {
+    if (!targetUserId) {
+      setTargetUserQuery("");
+      return;
+    }
+    const selectedUser = allUsers.find((user) => user.id === targetUserId);
+    setTargetUserQuery(selectedUser ? getUserLabel(selectedUser) : targetUserId);
+  }, [allUsers, targetUserId]);
 
   const onGenerate = async () => {
     setLoading(true);
@@ -94,13 +143,36 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
 
       <div className="form-grid">
         <label className="field">
-          <span>Target User ID</span>
+          <span>User Name</span>
           <input
             type="text"
-            value={targetUserId}
-            onChange={(e) => setTargetUserId(e.target.value)}
-            placeholder="user_123"
+            list="token-lab-user-options"
+            value={targetUserQuery}
+            onChange={(e) => {
+              const query = e.target.value;
+              const trimmed = query.trim();
+              const byLabel = allUsers.find((user) => {
+                const label = getUserLabel(user);
+                return label.toLowerCase() === trimmed.toLowerCase();
+              });
+              const byId = allUsers.find((user) => user.id === trimmed);
+              setTargetUserQuery(query);
+              setTargetUserId(byLabel?.id || byId?.id || "");
+            }}
+            placeholder="Type name, alias, or email"
           />
+          <datalist id="token-lab-user-options">
+            {allUsers.map((user) => (
+              <option key={user.id} value={getUserLabel(user)} />
+            ))}
+          </datalist>
+          <small style={{ color: "var(--muted)" }}>
+            {usersLoading
+              ? "Loading users..."
+              : targetUserId
+                ? `Selected ID: ${targetUserId}`
+                : "Select a user by name, alias, or email."}
+          </small>
         </label>
         <label className="field">
           <span>Token Duration (minutes)</span>
@@ -116,7 +188,7 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
       </div>
 
       <div className="actions">
-        <button className="btn" onClick={onGenerate} disabled={loading}>
+        <button className="btn" onClick={onGenerate} disabled={loading || !targetUserId}>
           {loading ? "Generating..." : "Generate Token"}
         </button>
         <button className="btn btn-secondary" onClick={onCopy} disabled={!result?.authToken}>
