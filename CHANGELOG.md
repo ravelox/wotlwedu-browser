@@ -2,6 +2,11 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.11 - 2026-03-24
+- Add Google sign-in and invite-aware login to the browser console.
+- Add a Profile page with organization invite create, list, resend, revoke, and history controls.
+- Add build-time Google client ID support for Docker and Vite configuration.
+
 ## 0.1.10 - 2026-03-10
 - Update Token Lab token generation to use a typedown combobox for selecting user name.
 - Resolve combobox selection to user ID before minting test tokens.

@@ -2,11 +2,14 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.10`
+Current version: `0.1.11`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).
 - JWT-authenticated login against `/login`.
+- Google sign-in against `/login/google`.
+- Invite-aware Google join flow via `/login?invite=...`.
+- Organization-admin invitation management with resend, revoke, and invite history.
 - Tenant-aware administration screens for:
   - organizations
   - workgroups
@@ -42,14 +45,25 @@ You can set the default at build/dev time with:
 
 `VITE_WOTLWEDU_API_BASE_URL`
 
+Google sign-in can be enabled at build/dev time with:
+
+`VITE_GOOGLE_CLIENT_ID`
+
 Examples:
 ```bash
 VITE_WOTLWEDU_API_BASE_URL=http://localhost:9876 npm run dev
 ```
 
 ```bash
+VITE_WOTLWEDU_API_BASE_URL=http://localhost:9876 \
+VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com \
+npm run dev
+```
+
+```bash
 docker build \
   --build-arg VITE_WOTLWEDU_API_BASE_URL=http://localhost:9876 \
+  --build-arg VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com \
   -t wotlwedu-browser .
 ```
 
@@ -74,6 +88,7 @@ Notes:
 - Set `environment` and `environments.<name>.service` / `environments.<name>.ingress` in Helm values to apply optional per-environment service and ingress overrides.
 
 ## Notes
+- `Profile` includes organization invite management for organization admins and system admins.
 - 2FA-enabled accounts are supported for login (the browser UI prompts for the one-time code after password verification).
 - System admins can open `Token Lab` to create test tokens for a target user by duration (`expiresInMinutes`), revoke issued test tokens, and optionally apply a token to the current session.
 - Some backend flows are specialized (for example full 2FA bootstrap/enable and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.

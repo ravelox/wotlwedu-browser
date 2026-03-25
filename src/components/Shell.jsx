@@ -4,6 +4,7 @@ import logo from "../assets/logo.png";
 
 const NAV_ITEMS = [
   ["Dashboard", "/dashboard"],
+  ["Profile", "/profile"],
   ["Organizations", "/organizations"],
   ["Workgroups", "/workgroups"],
   ["Groups", "/groups"],

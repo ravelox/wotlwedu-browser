@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import ResourcePage from "./pages/ResourcePage";
 import TokenLabPage from "./pages/TokenLabPage";
+import ProfilePage from "./pages/ProfilePage";
 import { createApi } from "./lib/api";
 import { clearSession, getSession, setSession } from "./lib/session";
 import { RESOURCE_DEFS } from "./lib/resourceDefs";
@@ -12,7 +13,7 @@ import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope
 
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.10";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.11";
 
 function RequireAuth({ session, children }) {
   const location = useLocation();
@@ -167,6 +168,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage api={api} />} />
+                <Route path="/profile" element={<ProfilePage api={api} session={session} />} />
                 <Route path="/organizations" element={ResourceRoute("organizations")} />
                 <Route path="/workgroups" element={ResourceRoute("workgroups")} />
                 <Route path="/groups" element={ResourceRoute("groups")} />
