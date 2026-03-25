@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage";
 import ResourcePage from "./pages/ResourcePage";
 import TokenLabPage from "./pages/TokenLabPage";
 import ProfilePage from "./pages/ProfilePage";
+import SupportPage from "./pages/SupportPage";
 import { createApi } from "./lib/api";
 import { clearSession, getSession, setSession } from "./lib/session";
 import { RESOURCE_DEFS } from "./lib/resourceDefs";
@@ -169,6 +170,7 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage api={api} />} />
                 <Route path="/profile" element={<ProfilePage api={api} session={session} />} />
+                <Route path="/support" element={<SupportPage api={api} session={session} />} />
                 <Route path="/organizations" element={ResourceRoute("organizations")} />
                 <Route path="/workgroups" element={ResourceRoute("workgroups")} />
                 <Route path="/groups" element={ResourceRoute("groups")} />

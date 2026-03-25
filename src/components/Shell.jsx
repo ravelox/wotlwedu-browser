@@ -31,9 +31,11 @@ export default function Shell({
   onChangeActiveWorkgroupId,
 }) {
   const [workgroups, setWorkgroups] = useState([]);
-  const navItems = session?.systemAdmin
-    ? [...NAV_ITEMS, ["Token Lab", "/token-lab"]]
-    : NAV_ITEMS;
+  const navItems = [
+    ...NAV_ITEMS,
+    ...((session?.systemAdmin || session?.organizationAdmin) ? [["Support", "/support"]] : []),
+    ...(session?.systemAdmin ? [["Token Lab", "/token-lab"]] : []),
+  ];
 
   useEffect(() => {
     let cancelled = false;
