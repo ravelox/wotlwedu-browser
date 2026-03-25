@@ -208,13 +208,21 @@ export default function LoginPage({ api, onLogin, appVersion }) {
         linkToken: pendingLink.linkToken,
       });
       if (response.status >= 400) {
-        setError(response.data?.message || "Google link confirmation failed");
+        const message =
+          response.data?.message === "Invalid social link token"
+            ? "Link confirmation expired. Sign in with Google again to restart linking."
+            : response.data?.message || "Google link confirmation failed";
+        setError(message);
         return;
       }
       setPendingLink(null);
       onLogin(response.data);
     } catch (err) {
-      setError(err.message || "Google link confirmation failed");
+      setError(
+        err.message === "Invalid social link token"
+          ? "Link confirmation expired. Sign in with Google again to restart linking."
+          : err.message || "Google link confirmation failed"
+      );
     } finally {
       setLoading(false);
     }

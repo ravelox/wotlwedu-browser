@@ -10,6 +10,8 @@ Current version: `0.1.11`
 - Google sign-in against `/login/google`.
 - Invite-aware Google join flow via `/login?invite=...`.
 - Organization-admin invitation management with resend, revoke, and invite history.
+- Linked sign-in method visibility plus unlink controls for removable social identities.
+- Account activity and organization audit feeds for support/admin review.
 - Tenant-aware administration screens for:
   - organizations
   - workgroups
@@ -48,6 +50,8 @@ You can set the default at build/dev time with:
 Google sign-in can be enabled at build/dev time with:
 
 `VITE_GOOGLE_CLIENT_ID`
+
+An example file is included at [`.env.example`](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/.env.example).
 
 Examples:
 ```bash
@@ -89,6 +93,7 @@ Notes:
 
 ## Notes
 - `Profile` includes organization invite management for organization admins and system admins.
+- `Profile` also shows linked sign-in methods, recent account activity, and organization audit activity when the authenticated user has access.
 - 2FA-enabled accounts are supported for login (the browser UI prompts for the one-time code after password verification).
 - System admins can open `Token Lab` to create test tokens for a target user by duration (`expiresInMinutes`), revoke issued test tokens, and optionally apply a token to the current session.
 - Some backend flows are specialized (for example full 2FA bootstrap/enable and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.
