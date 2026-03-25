@@ -2,14 +2,16 @@
 
 Last updated: 2026-03-24
 Repo: `wotlwedu-browser`
-Current version: `0.1.14`
+Current version: `0.1.15`
 
 ## Current Focus
 
-This repo is the main admin/support client for the backend auth hardening and observability slice.
+This repo is archived and obsolete. It should be treated as locked and retained only for historical reference unless an explicit exception is requested.
 
 ## Implemented State
 
+- This repo is no longer the primary admin/support console.
+- `wotlwedu-admin` now supersedes it for sysops and support operations.
 - Google sign-in and invite-aware onboarding already existed.
 - The login flow now handles expired deferred Google-link tokens more clearly.
 - The profile/admin flow now includes:
@@ -43,9 +45,9 @@ npm run build
 ## Notes
 
 - There is already a top-level [`.env.example`](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/.env.example).
-- This client is intended to have full admin parity with the web UI for invite/audit tooling.
+- This repo is archived and should not receive routine feature work.
 
 ## Likely Next Actions
 
-1. Validate the support console against the deployed backend with real auth/invite traffic.
-2. Expand support/admin workflows only if you want more than overview, recent failures, and targeted user investigation.
+1. Leave locked unless a migration, emergency fix, or explicit archival exception is requested.
+2. Direct new operational admin work into `wotlwedu-admin` instead.
