@@ -2,11 +2,11 @@
 
 Last updated: 2026-03-24
 Repo: `wotlwedu-browser`
-Current version: `0.1.12`
+Current version: `0.1.14`
 
 ## Current Focus
 
-This repo has been brought into parity with the backend support/admin auth hardening slice.
+This repo is the main admin/support client for the backend auth hardening and observability slice.
 
 ## Implemented State
 
@@ -18,11 +18,18 @@ This repo has been brought into parity with the backend support/admin auth harde
   - recent account activity from `/user/:userId/authaudit`
   - organization audit activity for admins from `/organization/:organizationId/authaudit`
   - improved invite conflict messaging when the backend reports cross-organization user conflicts
+- A dedicated `Support` console now exists for org/system admins:
+  - auth/invite overview metrics from `/support/auth/overview`
+  - paged support audit feed from `/support/auth/audit`
+  - targeted user investigation with sign-in method and recent audit lookup
 
-## Main Files Changed In This Uncommitted Slice
+## Key Files For This Baseline
 
+- [src/App.jsx](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/src/App.jsx)
+- [src/components/Shell.jsx](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/src/components/Shell.jsx)
 - [src/pages/LoginPage.jsx](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/src/pages/LoginPage.jsx)
 - [src/pages/ProfilePage.jsx](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/src/pages/ProfilePage.jsx)
+- [src/pages/SupportPage.jsx](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/src/pages/SupportPage.jsx)
 - [README.md](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/README.md)
 
 ## Verification Already Run
@@ -40,5 +47,5 @@ npm run build
 
 ## Likely Next Actions
 
-1. Stage, commit, tag, and push this uncommitted slice if accepted.
-2. Optionally expand support/admin views if you want deeper diagnostics than the current profile-based surfaces.
+1. Validate the support console against the deployed backend with real auth/invite traffic.
+2. Expand support/admin workflows only if you want more than overview, recent failures, and targeted user investigation.
