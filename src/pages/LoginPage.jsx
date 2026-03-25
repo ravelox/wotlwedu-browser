@@ -14,6 +14,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
   const [pending2fa, setPending2fa] = useState(null); // { userId, verificationToken }
   const [invite, setInvite] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [pendingLink, setPendingLink] = useState(null);
   const googleButtonRef = useRef(null);
   const inviteTokenRef = useRef("");
 
@@ -62,6 +63,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
     async function handleGoogleCredentialResponse(response) {
       setLoading(true);
       setError("");
+      setPendingLink(null);
 
       try {
         const loginResponse = await api.post("/login/google", {
@@ -70,6 +72,13 @@ export default function LoginPage({ api, onLogin, appVersion }) {
         });
         if (loginResponse.status >= 400) {
           setError(loginResponse.data?.message || "Google sign-in failed");
+          return;
+        }
+        if (loginResponse.data?.data?.linkRequired) {
+          setPendingLink({
+            linkToken: loginResponse.data.data.linkToken,
+            provider: loginResponse.data.data.provider || "google",
+          });
           return;
         }
         onLogin(loginResponse.data);
@@ -138,6 +147,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
     e.preventDefault();
     setError("");
     setLoading(true);
+    setPendingLink(null);
 
     try {
       const response = await api.post("/login", { email, password });
@@ -187,6 +197,29 @@ export default function LoginPage({ api, onLogin, appVersion }) {
     }
   };
 
+  const confirmPendingLink = async () => {
+    if (!pendingLink?.linkToken) return;
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await api.post("/login/google/link", {
+        linkToken: pendingLink.linkToken,
+      });
+      if (response.status >= 400) {
+        setError(response.data?.message || "Google link confirmation failed");
+        return;
+      }
+      setPendingLink(null);
+      onLogin(response.data);
+    } catch (err) {
+      setError(err.message || "Google link confirmation failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="login-page">
       <div className="login-card">
@@ -204,6 +237,28 @@ export default function LoginPage({ api, onLogin, appVersion }) {
           </div>
         ) : null}
         {inviteLoading ? <div className="loading">Checking invite...</div> : null}
+        {pendingLink ? (
+          <div className="invite-banner">
+            <strong>Confirmation required</strong>
+            <span>
+              Google authentication succeeded. Confirm to link this Google sign-in to your
+              existing Wotlwedu account.
+            </span>
+            <div className="password-row">
+              <button className="btn" type="button" disabled={loading} onClick={confirmPendingLink}>
+                {loading ? "Confirming..." : "Confirm Link"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={loading}
+                onClick={() => setPendingLink(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
         {!pending2fa ? (
           <form onSubmit={submitCredentials}>
             <label>
