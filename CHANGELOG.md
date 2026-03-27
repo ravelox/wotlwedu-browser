@@ -23,10 +23,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 - Keep Token Lab testing workflow support aligned with backend test-token mint/revoke behavior.
 
 ## 0.1.8 - 2026-03-09
-- Add a system-admin-only Token Lab page to mint testing bearer tokens via backend `POST /login/testtoken`.
+- Add a system-admin-only Token Lab page to mint testing bearer tokens via backend operator endpoint `POST /support/session/testtoken`.
 - Allow custom token lifetime input (`expiresInMinutes`) and support copying tokens directly from the UI.
 - Add a "Use In Session" action to apply the generated token to the current browser session for live permission/scoping tests.
-- Add a Token Lab revoke action (`POST /login/testtoken/revoke`) so test tokens can be invalidated immediately.
+- Add a Token Lab revoke action (`POST /support/session/testtoken/revoke`) so test tokens can be invalidated immediately.
 
 ## 0.1.7 - 2026-02-28
 - Let system admins manage categories on a per-user basis by selecting the category owner in the Categories pane.

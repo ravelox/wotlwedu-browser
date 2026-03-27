@@ -95,7 +95,7 @@ Notes:
 ## Notes
 - `Profile` includes organization invite management for organization admins and system admins.
 - `Profile` also shows linked sign-in methods, recent account activity, and organization audit activity when the authenticated user has access.
-- `Support` gives org/system admins a dedicated auth/invite investigation surface backed by `/support/auth/overview` and `/support/auth/audit`.
+- `Support` gives org/system admins a dedicated auth/invite investigation surface backed by `/support/auth/overview`, `/support/auth/audit`, and the operator aliases under `/support/users/*` and `/support/organizations/*`.
 - 2FA-enabled accounts are supported for login (the browser UI prompts for the one-time code after password verification).
 - System admins can open `Token Lab` to create test tokens for a target user by duration (`expiresInMinutes`), revoke issued test tokens, and optionally apply a token to the current session.
 - Some backend flows are specialized (for example full 2FA bootstrap/enable and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.

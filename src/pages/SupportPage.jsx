@@ -115,8 +115,8 @@ export default function SupportPage({ api, session }) {
     setError("");
     try {
       const [methodsResponse, auditsResponse] = await Promise.all([
-        api.get(`/user/${user.id}/signin-method`),
-        api.get(`/user/${user.id}/authaudit`, { params: { items: 20 } }),
+        api.get(`/support/users/${user.id}/signin-method`),
+        api.get(`/support/users/${user.id}/authaudit`, { params: { items: 20 } }),
       ]);
       if (methodsResponse.status >= 400) {
         throw toApiError(methodsResponse, "Failed to load sign-in methods");

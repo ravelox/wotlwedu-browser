@@ -42,10 +42,10 @@ export default function ProfilePage({ api, session }) {
       if (canManageOrganization) {
         requests.push(
           api.get(`/organization/${session.organizationId}`),
-          api.get(`/organization/${session.organizationId}/invite`, {
+          api.get(`/support/organizations/${session.organizationId}/invite`, {
             params: inviteFilter === "all" ? undefined : { status: inviteFilter },
           }),
-          api.get(`/organization/${session.organizationId}/authaudit`, {
+          api.get(`/support/organizations/${session.organizationId}/authaudit`, {
             params: {
               items: 20,
               ...(auditOutcomeFilter === "all" ? {} : { outcome: auditOutcomeFilter }),
@@ -114,7 +114,7 @@ export default function ProfilePage({ api, session }) {
     setSuccess("");
 
     try {
-      const response = await api.post(`/organization/${session.organizationId}/invite`, {
+      const response = await api.post(`/support/organizations/${session.organizationId}/invite`, {
         email: inviteEmail,
       });
       if (response.status >= 400) {
@@ -146,7 +146,7 @@ export default function ProfilePage({ api, session }) {
 
     try {
       const response = await api.post(
-        `/organization/${session.organizationId}/invite/${inviteId}/resend`
+        `/support/organizations/${session.organizationId}/invite/${inviteId}/resend`
       );
       if (response.status >= 400) {
         throw toApiError(response, "Failed to resend invite");
@@ -170,7 +170,7 @@ export default function ProfilePage({ api, session }) {
 
     try {
       const response = await api.delete(
-        `/organization/${session.organizationId}/invite/${inviteId}`
+        `/support/organizations/${session.organizationId}/invite/${inviteId}`
       );
       if (response.status >= 400) {
         throw toApiError(response, "Failed to revoke invite");

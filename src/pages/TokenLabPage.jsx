@@ -65,7 +65,7 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
     setSuccess("");
     setResult(null);
     try {
-      const response = await api.post("/login/testtoken", {
+      const response = await api.post("/support/session/testtoken", {
         userId: targetUserId,
         expiresInMinutes: Number(expiresInMinutes),
       });
@@ -104,7 +104,7 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
     setError("");
     setSuccess("");
     try {
-      const response = await api.post("/login/testtoken/revoke", {
+      const response = await api.post("/support/session/testtoken/revoke", {
         tokenId: result.tokenId,
       });
       if (response.status >= 400) {
