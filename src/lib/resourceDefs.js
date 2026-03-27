@@ -136,7 +136,7 @@ export const RESOURCE_DEFS = {
     ],
   },
   elections: {
-    title: "Elections",
+    title: "Polls",
     path: "/election",
     listKey: "elections",
     singleKey: "election",
@@ -150,7 +150,7 @@ export const RESOURCE_DEFS = {
       ["groupId", "Audience Group ID", "text"],
       ["categoryId", "Category ID", "text"],
       ["imageId", "Image ID", "text"],
-      ["electionType", "Election Type", "number"],
+      ["electionType", "Poll Type", "number"],
       ["expiration", "Expiration (ISO)", "text"],
     ],
   },
@@ -162,7 +162,7 @@ export const RESOURCE_DEFS = {
     idField: "id",
     deletable: false,
     fields: [
-      ["electionId", "Election ID", "text"],
+      ["electionId", "Poll ID", "text"],
       ["itemId", "Item ID", "text"],
       ["userId", "User ID", "user-combobox"],
       ["statusId", "Status ID", "number"],

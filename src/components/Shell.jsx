@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   ["Items", "/items"],
   ["Images", "/images"],
   ["Lists", "/lists"],
-  ["Elections", "/elections"],
+  ["Polls", "/elections"],
   ["Votes", "/votes"],
   ["Notifications", "/notifications"],
   ["Preferences", "/preferences"],
