@@ -135,6 +135,17 @@ nav { display: grid; gap: 6px; }
   border-collapse: collapse;
   table-layout: fixed;
 }
+.data-table-scroll {
+  max-height: min(62vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.data-table-scroll .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
 .data-table th, .data-table td {
   border-bottom: 1px solid var(--border);
   padding: 8px;
@@ -182,10 +193,13 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fbfdff;
-  max-height: 280px;
-  overflow: auto;
+  height: clamp(180px, 34vh, 320px);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px;
   display: grid;
+  align-content: start;
   gap: 6px;
 }
 

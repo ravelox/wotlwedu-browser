@@ -2,6 +2,9 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.22 - 2026-05-06
+- Keep long resource tables and capability pickers scrollable instead of expanding the page.
+
 ## 0.1.21 - 2026-05-05
 - Run the resource filter when Enter is pressed in the filter input.
 

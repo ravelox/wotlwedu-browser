@@ -534,26 +534,28 @@ export default function ResourcePage({ api, definition, session, scope }) {
         </div>
 
         {loading ? <Loading /> : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                {fields.slice(0, 3).map(([key, label]) => <th key={key}>{label}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row[idField]}
-                  className={selectedId === row[idField] ? "row-selected" : ""}
-                  onClick={() => loadSingle(row[idField])}
-                >
-                  <td>{row[idField]}</td>
-                  {fields.slice(0, 3).map(([key]) => <td key={key}>{String(row[key] ?? "")}</td>)}
+          <div className="data-table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  {fields.slice(0, 3).map(([key, label]) => <th key={key}>{label}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr
+                    key={row[idField]}
+                    className={selectedId === row[idField] ? "row-selected" : ""}
+                    onClick={() => loadSingle(row[idField])}
+                  >
+                    <td>{row[idField]}</td>
+                    {fields.slice(0, 3).map(([key]) => <td key={key}>{String(row[key] ?? "")}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
