@@ -2,6 +2,9 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.21 - 2026-05-05
+- Run the resource filter when Enter is pressed in the filter input.
+
 ## 0.1.20 - 2026-05-05
 - Update browser-console labels for Circle, Picture, Person, Space, and Poll terminology.
 - Replace Options terminology with Ideas where it appears in browser-console copy.

@@ -14,7 +14,7 @@ import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope
 
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.20";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.21";
 
 function RequireAuth({ session, children }) {
   const location = useLocation();

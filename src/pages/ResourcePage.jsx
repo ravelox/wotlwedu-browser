@@ -503,6 +503,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") listRows();
+              }}
               placeholder="Filter"
             />
             {isCategoryResource && canChooseCategoryOwner && (
