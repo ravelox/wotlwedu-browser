@@ -28,6 +28,8 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const [allUsers, setAllUsers] = useState([]);
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState([]);
   const [initialCapabilityIds, setInitialCapabilityIds] = useState([]);
+  const [selectedRoleProtected, setSelectedRoleProtected] = useState(false);
+  const [showAllRoleCapabilities, setShowAllRoleCapabilities] = useState(false);
   const [scopedOrganizationId, setScopedOrganizationId] = useState(null);
   const [categoryOwnerId, setCategoryOwnerId] = useState(session?.userId || "");
   const [loading, setLoading] = useState(false);
@@ -44,6 +46,16 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const hasUserCombobox = fields.some(([, , type]) => type === "user-combobox");
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
   const canChooseCategoryOwner = session?.systemAdmin === true;
+
+  const isProtectedRole = (role) =>
+    role?.protected === true || role?.protected === 1 || role?.protected === "1";
+
+  const visibleCapabilities = useMemo(() => {
+    if (!isRoleResource) return [];
+    if (showAllRoleCapabilities) return allCapabilities;
+    const selectedSet = new Set(selectedCapabilityIds);
+    return allCapabilities.filter((cap) => cap?.id && selectedSet.has(cap.id));
+  }, [allCapabilities, isRoleResource, selectedCapabilityIds, showAllRoleCapabilities]);
 
   const newRecord = useMemo(() => {
     const next = {};
@@ -201,6 +213,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
         next[key] = coerceValue(type, entity[key]);
       }
       if (isRoleResource) {
+        setSelectedRoleProtected(isProtectedRole(entity));
         const roleCaps = Array.isArray(entity.capabilities) ? entity.capabilities : [];
         const capIds = roleCaps
           .map((cap) => cap?.id)
@@ -274,6 +287,8 @@ export default function ResourcePage({ api, definition, session, scope }) {
     if (isRoleResource) {
       setSelectedCapabilityIds([]);
       setInitialCapabilityIds([]);
+      setSelectedRoleProtected(false);
+      setShowAllRoleCapabilities(false);
     }
     setSuccess("");
     setError("");
@@ -326,6 +341,8 @@ export default function ResourcePage({ api, definition, session, scope }) {
         }
         setSelectedCapabilityIds([]);
         setInitialCapabilityIds([]);
+        setSelectedRoleProtected(false);
+        setShowAllRoleCapabilities(false);
       }
       await listRows();
     } catch (err) {
@@ -338,6 +355,10 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const onDelete = async () => {
     if (!selectedId) return;
     if (definition.deletable === false) return;
+    if (isRoleResource && selectedRoleProtected) {
+      setError("Protected roles cannot be deleted.");
+      return;
+    }
     if (!window.confirm(`Delete ${definition.title} item ${selectedId}?`)) return;
     setSaving(true);
     setError("");
@@ -359,6 +380,8 @@ export default function ResourcePage({ api, definition, session, scope }) {
       }
       setSelectedCapabilityIds([]);
       setInitialCapabilityIds([]);
+      setSelectedRoleProtected(false);
+      setShowAllRoleCapabilities(false);
       await listRows();
     } catch (err) {
       setError(err.message);
@@ -414,6 +437,8 @@ export default function ResourcePage({ api, definition, session, scope }) {
       setAllCapabilities([]);
       setSelectedCapabilityIds([]);
       setInitialCapabilityIds([]);
+      setSelectedRoleProtected(false);
+      setShowAllRoleCapabilities(false);
     }
   }, [newRecord, isCategoryResource, isRoleResource, session?.userId]);
 
@@ -540,6 +565,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
                 <tr>
                   <th>ID</th>
                   {fields.slice(0, 3).map(([key, label]) => <th key={key}>{label}</th>)}
+                  {isRoleResource && <th>Status</th>}
                 </tr>
               </thead>
               <tbody>
@@ -551,6 +577,15 @@ export default function ResourcePage({ api, definition, session, scope }) {
                   >
                     <td>{row[idField]}</td>
                     {fields.slice(0, 3).map(([key]) => <td key={key}>{String(row[key] ?? "")}</td>)}
+                    {isRoleResource && (
+                      <td>
+                        {isProtectedRole(row) ? (
+                          <span className="role-protected-badge">Protected</span>
+                        ) : (
+                          <span className="role-standard-badge">Editable</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -561,7 +596,15 @@ export default function ResourcePage({ api, definition, session, scope }) {
 
       <div className="panel panel-form">
         <div className="panel-header">
-          <h3>{selectedId ? `Edit ${selectedId}` : `New ${singularizeTitle(definition.title)}`}</h3>
+          <div>
+            <h3>{selectedId ? `Edit ${selectedId}` : `New ${singularizeTitle(definition.title)}`}</h3>
+            {isRoleResource && selectedId && selectedRoleProtected && (
+              <p className="role-protected-note">
+                <span className="role-protected-badge">Protected</span>
+                This role is protected from deletion.
+              </p>
+            )}
+          </div>
         </div>
         <ErrorBanner error={error} />
         <SuccessBanner message={success} />
@@ -705,9 +748,27 @@ export default function ResourcePage({ api, definition, session, scope }) {
 
           {isRoleResource && (
             <div className="field field-full">
-              <span>Capabilities ({selectedCapabilityIds.length})</span>
+              <div className="capability-picker-header">
+                <span>Capabilities ({selectedCapabilityIds.length})</span>
+                <div className="segmented-control" aria-label="Capability list display">
+                  <button
+                    type="button"
+                    className={!showAllRoleCapabilities ? "segmented-active" : ""}
+                    onClick={() => setShowAllRoleCapabilities(false)}
+                  >
+                    Selected
+                  </button>
+                  <button
+                    type="button"
+                    className={showAllRoleCapabilities ? "segmented-active" : ""}
+                    onClick={() => setShowAllRoleCapabilities(true)}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
               <div className="capability-picker">
-                {allCapabilities.map((cap) => {
+                {visibleCapabilities.map((cap) => {
                   const capId = cap?.id;
                   if (!capId) return null;
                   const checked = selectedCapabilityIds.includes(capId);
@@ -730,6 +791,13 @@ export default function ResourcePage({ api, definition, session, scope }) {
                     </label>
                   );
                 })}
+                {visibleCapabilities.length === 0 && (
+                  <div className="capability-empty">
+                    {showAllRoleCapabilities
+                      ? "No capabilities are available."
+                      : "No capabilities selected for this role."}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -738,7 +806,13 @@ export default function ResourcePage({ api, definition, session, scope }) {
         <div className="actions">
           <button className="btn" disabled={saving} onClick={onSave}>{saving ? "Saving..." : "Save"}</button>
           {definition.deletable !== false && (
-            <button className="btn btn-danger" disabled={!selectedId || saving} onClick={onDelete}>Delete</button>
+            <button
+              className="btn btn-danger"
+              disabled={!selectedId || saving || (isRoleResource && selectedRoleProtected)}
+              onClick={onDelete}
+            >
+              Delete
+            </button>
           )}
         </div>
       </div>

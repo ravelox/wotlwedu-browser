@@ -7,6 +7,7 @@ import ResourcePage from "./pages/ResourcePage";
 import TokenLabPage from "./pages/TokenLabPage";
 import ProfilePage from "./pages/ProfilePage";
 import SupportPage from "./pages/SupportPage";
+import ConfigPage from "./pages/ConfigPage";
 import { createApi } from "./lib/api";
 import { clearSession, getSession, setSession } from "./lib/session";
 import { RESOURCE_DEFS } from "./lib/resourceDefs";
@@ -185,6 +186,7 @@ export default function App() {
                 <Route path="/votes" element={ResourceRoute("votes")} />
                 <Route path="/notifications" element={ResourceRoute("notifications")} />
                 <Route path="/preferences" element={ResourceRoute("preferences")} />
+                <Route path="/configuration" element={<ConfigPage api={api} session={session} />} />
                 <Route
                   path="/token-lab"
                   element={<TokenLabPage api={api} session={session} onApplyToken={onApplyToken} />}

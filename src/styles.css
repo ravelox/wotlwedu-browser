@@ -94,6 +94,10 @@ nav { display: grid; gap: 6px; }
   padding: 16px;
 }
 .panel h2, .panel h3 { margin-top: 0; }
+.muted-copy {
+  color: var(--muted);
+  margin: 4px 0 0;
+}
 
 .api-bar {
   background: var(--panel);
@@ -146,6 +150,57 @@ nav { display: grid; gap: 6px; }
   z-index: 1;
   background: var(--panel);
 }
+.config-page {
+  display: grid;
+  gap: 14px;
+}
+.config-filter {
+  margin-bottom: 12px;
+}
+.config-table-scroll {
+  max-height: min(62vh, 680px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfdff;
+}
+.config-table {
+  min-width: 860px;
+}
+.config-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fbfdff;
+}
+.config-table th:nth-child(1) { width: 260px; }
+.config-table th:nth-child(2) { width: 110px; }
+.config-table td {
+  vertical-align: top;
+  white-space: normal;
+}
+.config-value,
+.config-json {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.config-value.redacted {
+  color: var(--danger);
+  font-weight: 700;
+}
+.config-json {
+  max-height: min(48vh, 520px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 12px;
+}
 .data-table th, .data-table td {
   border-bottom: 1px solid var(--border);
   padding: 8px;
@@ -158,6 +213,36 @@ nav { display: grid; gap: 6px; }
 .data-table tbody tr { cursor: pointer; }
 .data-table tbody tr:hover { background: rgba(29, 92, 82, 0.06); }
 .row-selected { background: rgba(36, 76, 122, 0.09); }
+.role-protected-badge,
+.role-standard-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 24px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.role-protected-badge {
+  color: #7a3414;
+  background: rgba(217, 143, 61, 0.22);
+  border: 1px solid rgba(217, 143, 61, 0.38);
+}
+.role-standard-badge {
+  color: #2f5156;
+  background: rgba(29, 92, 82, 0.08);
+  border: 1px solid rgba(29, 92, 82, 0.18);
+}
+.role-protected-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
 
 .form-grid {
   display: grid;
@@ -201,6 +286,38 @@ input[type="checkbox"] {
   display: grid;
   align-content: start;
   gap: 6px;
+}
+.capability-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fbfdff;
+}
+.segmented-control button {
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+}
+.segmented-control button.segmented-active {
+  color: #fff;
+  background: var(--brand);
+}
+.capability-empty {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .capability-option {
