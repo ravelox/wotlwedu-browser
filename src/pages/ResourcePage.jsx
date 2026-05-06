@@ -73,10 +73,10 @@ export default function ResourcePage({ api, definition, session, scope }) {
       return;
     }
     try {
-      const response = await api.get("/user", {
+      const response = await api.get("/person", {
         params: { page: 1, items: 1000 },
       });
-      if (response.status >= 400) throw toApiError(response, "Failed to load users");
+      if (response.status >= 400) throw toApiError(response, "Failed to load people");
       const items = response.data?.data?.users || response.data?.users || [];
       setAllUsers(Array.isArray(items) ? items : []);
     } catch (err) {
@@ -368,13 +368,13 @@ export default function ResourcePage({ api, definition, session, scope }) {
   };
 
   const onUploadImage = async () => {
-    if (definition.path !== "/image") return;
+    if (definition.path !== "/picture") return;
     if (!selectedId) {
-      setError("Save the image record first, then upload a file.");
+      setError("Save the picture record first, then upload a file.");
       return;
     }
     if (!uploadFile) {
-      setError("Choose an image file to upload.");
+      setError("Choose a picture file to upload.");
       return;
     }
 
@@ -389,9 +389,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
       formData.append("fileextension", safeExt);
       formData.append("imageUpload", uploadFile);
 
-      const response = await api.post(`/image/file/${selectedId}`, formData);
-      if (response.status >= 400) throw toApiError(response, "Failed to upload image");
-      setSuccess("Image uploaded");
+      const response = await api.post(`/picture/file/${selectedId}`, formData);
+      if (response.status >= 400) throw toApiError(response, "Failed to upload picture");
+      setSuccess("Picture uploaded");
       setUploadFile(null);
       await listRows();
     } catch (err) {
@@ -422,9 +422,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
     async function loadScopedOrgId() {
       setScopedOrganizationId(null);
       if (!api) return;
-      if (definition.path !== "/user") return;
+      if (definition.path !== "/person") return;
       if (!scope?.activeWorkgroupId) return;
-      const response = await api.get(`/workgroup/${scope.activeWorkgroupId}`);
+      const response = await api.get(`/space/${scope.activeWorkgroupId}`);
       const workgroup = response.data?.data?.workgroup || response.data?.workgroup;
       const orgId = workgroup?.organizationId || null;
       if (!cancelled) setScopedOrganizationId(orgId);
@@ -436,7 +436,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
   }, [api, definition.path, scope?.activeWorkgroupId]);
 
   useEffect(() => {
-    if (definition.path !== "/user") return;
+    if (definition.path !== "/person") return;
     if (!scope?.activeWorkgroupId) return;
     if (selectedId) return;
     if (!scopedOrganizationId) return;
@@ -565,7 +565,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
           {hasCategoryField && (
             <div className="field field-full">
               <span>
-                Category choices for owner: <strong>{categoryOwnerId || session?.userId || "current user"}</strong>
+                Category choices for owner: <strong>{categoryOwnerId || session?.userId || "current person"}</strong>
               </span>
             </div>
           )}
@@ -623,7 +623,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
                     type="text"
                     list={`${key}-options`}
                     value={comboQueries[key] ?? ""}
-                    placeholder="Type user name or email"
+                    placeholder="Type person name or email"
                     onChange={(e) => {
                       const query = e.target.value;
                       const trimmed = query.trim();
@@ -650,7 +650,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
                     ))}
                   </datalist>
                   <small style={{ color: "var(--muted)" }}>
-                    {form[key] ? `Selected ID: ${form[key]}` : "Select a user by name, alias, or email."}
+                    {form[key] ? `Selected ID: ${form[key]}` : "Select a person by name, alias, or email."}
                   </small>
                 </>
               ) : type === "checkbox" ? (
@@ -669,7 +669,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
             </label>
           ))}
 
-          {definition.path === "/image" && (
+          {definition.path === "/picture" && (
             <div className="field field-full">
               <span style={{ display: "block", marginBottom: 6 }}>Upload File</span>
               <input

@@ -14,7 +14,7 @@ import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope
 
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.16";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.20";
 
 function RequireAuth({ session, children }) {
   const location = useLocation();
@@ -172,16 +172,16 @@ export default function App() {
                 <Route path="/profile" element={<ProfilePage api={api} session={session} />} />
                 <Route path="/support" element={<SupportPage api={api} session={session} />} />
                 <Route path="/organizations" element={ResourceRoute("organizations")} />
-                <Route path="/workgroups" element={ResourceRoute("workgroups")} />
-                <Route path="/groups" element={ResourceRoute("groups")} />
-                <Route path="/users" element={ResourceRoute("users")} />
+                <Route path="/spaces" element={ResourceRoute("workgroups")} />
+                <Route path="/circles" element={ResourceRoute("groups")} />
+                <Route path="/people" element={ResourceRoute("users")} />
                 <Route path="/roles" element={ResourceRoute("roles")} />
                 <Route path="/capabilities" element={ResourceRoute("capabilities")} />
                 <Route path="/categories" element={ResourceRoute("categories")} />
                 <Route path="/items" element={ResourceRoute("items")} />
-                <Route path="/images" element={ResourceRoute("images")} />
+                <Route path="/pictures" element={ResourceRoute("images")} />
                 <Route path="/lists" element={ResourceRoute("lists")} />
-                <Route path="/elections" element={ResourceRoute("elections")} />
+                <Route path="/polls" element={ResourceRoute("elections")} />
                 <Route path="/votes" element={ResourceRoute("votes")} />
                 <Route path="/notifications" element={ResourceRoute("notifications")} />
                 <Route path="/preferences" element={ResourceRoute("preferences")} />

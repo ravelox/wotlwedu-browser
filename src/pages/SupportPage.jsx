@@ -93,19 +93,19 @@ export default function SupportPage({ api, session }) {
     setError("");
     setSuccess("");
     try {
-      const response = await api.get("/user", {
+      const response = await api.get("/person", {
         params: { page: 1, items: 25, filter: searchQuery.trim() },
       });
       if (response.status >= 400) {
-        throw toApiError(response, "Failed to search users");
+        throw toApiError(response, "Failed to search people");
       }
       const users = response.data?.data?.users || response.data?.users || [];
       setSearchResults(Array.isArray(users) ? users : []);
       if (!users.length) {
-        setSuccess("No users matched the current search.");
+        setSuccess("No people matched the current search.");
       }
     } catch (err) {
-      setError(err.message || "Failed to search users");
+      setError(err.message || "Failed to search people");
     }
   }
 
@@ -115,14 +115,14 @@ export default function SupportPage({ api, session }) {
     setError("");
     try {
       const [methodsResponse, auditsResponse] = await Promise.all([
-        api.get(`/support/users/${user.id}/signin-method`),
-        api.get(`/support/users/${user.id}/authaudit`, { params: { items: 20 } }),
+        api.get(`/support/people/${user.id}/signin-method`),
+        api.get(`/support/people/${user.id}/authaudit`, { params: { items: 20 } }),
       ]);
       if (methodsResponse.status >= 400) {
         throw toApiError(methodsResponse, "Failed to load sign-in methods");
       }
       if (auditsResponse.status >= 400) {
-        throw toApiError(auditsResponse, "Failed to load user audit activity");
+        throw toApiError(auditsResponse, "Failed to load person audit activity");
       }
       setSelectedMethods(
         methodsResponse.data?.data?.methods || {
@@ -132,7 +132,7 @@ export default function SupportPage({ api, session }) {
       );
       setSelectedAudits(auditsResponse.data?.data?.audits || []);
     } catch (err) {
-      setError(err.message || "Failed to inspect user");
+      setError(err.message || "Failed to inspect person");
     }
   }
 
@@ -189,7 +189,7 @@ export default function SupportPage({ api, session }) {
             <input value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="field">
-            <span>User ID</span>
+            <span>Person ID</span>
             <input value={userId} onChange={(e) => setUserId(e.target.value)} />
           </label>
         </div>
@@ -319,10 +319,10 @@ export default function SupportPage({ api, session }) {
       </section>
 
       <section className="panel">
-        <h2>User Investigation</h2>
+        <h2>Person Investigation</h2>
         <form className="form-grid" onSubmit={searchUsers}>
           <label className="field field-full">
-            <span>User Search</span>
+            <span>Person Search</span>
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

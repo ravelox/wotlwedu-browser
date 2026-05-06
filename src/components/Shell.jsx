@@ -6,16 +6,16 @@ const NAV_ITEMS = [
   ["Dashboard", "/dashboard"],
   ["Profile", "/profile"],
   ["Organizations", "/organizations"],
-  ["Workgroups", "/workgroups"],
-  ["Groups", "/groups"],
-  ["Users", "/users"],
+  ["Spaces", "/spaces"],
+  ["Circles", "/circles"],
+  ["People", "/people"],
   ["Roles", "/roles"],
   ["Capabilities", "/capabilities"],
   ["Categories", "/categories"],
   ["Items", "/items"],
-  ["Images", "/images"],
+  ["Pictures", "/pictures"],
   ["Lists", "/lists"],
-  ["Polls", "/elections"],
+  ["Polls", "/polls"],
   ["Votes", "/votes"],
   ["Notifications", "/notifications"],
   ["Preferences", "/preferences"],
@@ -41,7 +41,7 @@ export default function Shell({
     let cancelled = false;
     async function load() {
       if (!api || !session?.authToken) return;
-      const response = await api.get("/workgroup", {
+      const response = await api.get("/space", {
         params: { page: 1, items: 200, detail: undefined },
       });
       const list =
@@ -82,14 +82,14 @@ export default function Shell({
       <main className="main-content">
         <header className="topbar">
           <div>
-            <strong>{session?.alias || session?.email || "User"}</strong>
+            <strong>{session?.alias || session?.email || "Person"}</strong>
             <p>
-              {session?.systemAdmin ? "System Admin" : session?.organizationAdmin ? "Organization Admin" : session?.workgroupAdmin ? "Workgroup Admin" : "User"}
+              {session?.systemAdmin ? "System Admin" : session?.organizationAdmin ? "Organization Admin" : session?.workgroupAdmin ? "Space Admin" : "Person"}
               {session?.organizationId ? ` • ${session.organizationId}` : ""}
             </p>
             <div style={{ marginTop: 6 }}>
               <label style={{ fontSize: 12, color: "var(--muted)" }}>
-                Workgroup Scope{" "}
+                Space Scope{" "}
                 <select
                   value={activeWorkgroupId || ""}
                   onChange={(e) =>

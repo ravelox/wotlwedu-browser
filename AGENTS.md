@@ -43,5 +43,5 @@ Backend behavior:
 
 ## Repo Hygiene
 - Do not commit `node_modules/`, `dist/`, `.env*`, or secrets.
-- Keep endpoints aligned with `wotlwedu-backend` (URLs, auth, and tenancy/workgroup scoping).
+- Keep endpoints aligned with `wotlwedu-backend` (URLs, auth, and tenancy/space scoping).
 

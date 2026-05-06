@@ -35,8 +35,8 @@ export default function ProfilePage({ api, session }) {
     setLoading(true);
     try {
       const requests = [
-        api.get(`/user/${session.userId}/signin-method`),
-        api.get(`/user/${session.userId}/authaudit`, { params: { items: 10 } }),
+        api.get(`/person/${session.userId}/signin-method`),
+        api.get(`/person/${session.userId}/authaudit`, { params: { items: 10 } }),
       ];
 
       if (canManageOrganization) {
@@ -193,7 +193,7 @@ export default function ProfilePage({ api, session }) {
     setSuccess("");
 
     try {
-      const response = await api.delete(`/user/${session.userId}/signin-method/${identityId}`);
+      const response = await api.delete(`/person/${session.userId}/signin-method/${identityId}`);
       if (response.status >= 400) {
         throw toApiError(response, "Failed to unlink sign-in method");
       }
@@ -216,8 +216,8 @@ export default function ProfilePage({ api, session }) {
         <h2>Profile</h2>
         <div className="profile-grid">
           <div>
-            <span className="profile-label">User</span>
-            <strong>{session?.alias || session?.email || "User"}</strong>
+            <span className="profile-label">Person</span>
+            <strong>{session?.alias || session?.email || "Person"}</strong>
           </div>
           <div>
             <span className="profile-label">Email</span>
@@ -235,8 +235,8 @@ export default function ProfilePage({ api, session }) {
                 : session?.organizationAdmin
                   ? "Organization Admin"
                   : session?.workgroupAdmin
-                    ? "Workgroup Admin"
-                    : "User"}
+                    ? "Space Admin"
+                    : "Person"}
             </strong>
           </div>
         </div>

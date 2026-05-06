@@ -24,11 +24,11 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
     const loadUsers = async () => {
       setUsersLoading(true);
       try {
-        const response = await api.get("/user", {
+        const response = await api.get("/person", {
           params: { page: 1, items: 1000 },
         });
         if (response.status >= 400) {
-          throw toApiError(response, "Failed to load users");
+          throw toApiError(response, "Failed to load people");
         }
         const users = response.data?.data?.users || response.data?.users || [];
         if (!cancelled) {
@@ -143,7 +143,7 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
 
       <div className="form-grid">
         <label className="field">
-          <span>User Name</span>
+          <span>Person Name</span>
           <input
             type="text"
             list="token-lab-user-options"
@@ -168,10 +168,10 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
           </datalist>
           <small style={{ color: "var(--muted)" }}>
             {usersLoading
-              ? "Loading users..."
+              ? "Loading people..."
               : targetUserId
                 ? `Selected ID: ${targetUserId}`
-                : "Select a user by name, alias, or email."}
+                : "Select a person by name, alias, or email."}
           </small>
         </label>
         <label className="field">

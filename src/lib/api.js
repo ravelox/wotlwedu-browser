@@ -1,9 +1,17 @@
 import axios from "axios";
 import { getAuthToken } from "./session";
 
+const API_VERSION = "v1";
+
+function versionedBaseUrl(baseURL) {
+  const trimmed = String(baseURL || "").replace(/\/+$/, "");
+  if (/\/v\d+$/.test(trimmed)) return trimmed;
+  return `${trimmed}/${API_VERSION}`;
+}
+
 export function createApi(baseURL, onUnauthorized) {
   const api = axios.create({
-    baseURL,
+    baseURL: versionedBaseUrl(baseURL),
     timeout: 30000,
     validateStatus: () => true,
   });

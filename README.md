@@ -2,7 +2,7 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.16`
+Current version: `0.1.20`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).
@@ -95,13 +95,13 @@ Notes:
 ## Notes
 - `Profile` includes organization invite management for organization admins and system admins.
 - `Profile` also shows linked sign-in methods, recent account activity, and organization audit activity when the authenticated user has access.
-- `Support` gives org/system admins a dedicated auth/invite investigation surface backed by `/support/auth/overview`, `/support/auth/audit`, and the operator aliases under `/support/users/*` and `/support/organizations/*`.
+- `Support` gives org/system admins a dedicated auth/invite investigation surface backed by `/support/auth/overview`, `/support/auth/audit`, and the operator aliases under `/support/people/*` and `/support/organizations/*`.
 - 2FA-enabled accounts are supported for login (the browser UI prompts for the one-time code after password verification).
 - System admins can open `Token Lab` to create test tokens for a target user by duration (`expiresInMinutes`), revoke issued test tokens, and optionally apply a token to the current session.
 - Some backend flows are specialized (for example full 2FA bootstrap/enable and file upload); this UI focuses on broad admin/operations coverage and direct endpoint interaction.
-- Authorization is enforced by backend capabilities and tenant/workgroup scope.
+- Authorization is enforced by backend capabilities and tenant/space scope.
 - Category assignment is user-scoped in the backend; submitted `categoryId` values must belong to the authenticated user.
 - When a system admin edits categories, the Categories pane can now target a specific category owner.
-- When a system admin edits an item/image/list/group/workgroup/election, the category dropdown is populated from the categories owned by that object's creator.
+- When a system admin edits an item/picture/list/circle/space/poll, the category dropdown is populated from the categories owned by that object's creator.
 - Category-enabled collection endpoints can return grouped category menus via `?collapsible=true`.
 - Workgroup/organization IDs are optional in many flows; backend normalizes placeholder values (`""`, `"undefined"`, `"null"`).

@@ -2,6 +2,11 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.20 - 2026-05-05
+- Update browser-console labels for Circle, Picture, Person, Space, and Poll terminology.
+- Replace Options terminology with Ideas where it appears in browser-console copy.
+- Move browser-console API calls to clean terminology endpoints and the `/v1` API base.
+
 ## 0.1.16 - 2026-03-25
 - Remove `CHECKPOINT.md` as part of the cross-repo cleanup.
 
@@ -48,7 +53,7 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 - Backend now normalizes placeholder ID values for `workgroupId` and `organizationId` (`""`, `"undefined"`, `"null"`).
 
 ## 0.1.2 - 2026-02-14
-- Add image file upload support in the Images pane (multipart upload to `/image/file/:imageId`).
+- Add image file upload support in the Images pane (multipart upload to `/picture/file/:imageId`).
 - Fix Users pane workgroup scoping (send `workgroupId` when a scope is selected).
 - Prepopulate new-user `organizationId` from selected workgroup scope.
 - Ensure resource panes remount on nav changes to avoid stale table/form state.
