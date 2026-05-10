@@ -2,6 +2,16 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.24 - 2026-05-10
+- Refresh Codex agent guidance for the browser/admin repository.
+- Update README release metadata and deployment notes.
+- Keep the displayed app fallback version aligned with package metadata.
+
+## 0.1.23 - 2026-05-06
+- Add a runtime config display for system-admin diagnostics.
+- Improve role capability controls in the resource editor.
+- Copy the custom Nginx config into the runtime image so SPA routes are served through `index.html`.
+
 ## 0.1.22 - 2026-05-06
 - Keep long resource tables and capability pickers scrollable instead of expanding the page.
 

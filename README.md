@@ -2,7 +2,7 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.22`
+Current version: `0.1.24`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).
@@ -18,7 +18,8 @@ Current version: `0.1.22`
   - workgroups
   - users
   - roles and capabilities
-- CRUD management screens for categories, items, images, lists, elections, votes, notifications, and preferences.
+- CRUD management screens for categories, items, images, lists, polls, votes, notifications, and preferences.
+- Runtime config display for system-admin diagnostics.
 - Dashboard with health/status, ping, unread notification count, and smart defaults.
 - System-admin Token Lab for minting short-lived testing bearer tokens with custom expiration.
 
@@ -37,6 +38,8 @@ npm run dev
 
 App runs by default on `http://localhost:5173`.
 
+The root monorepo compose stack publishes the browser/admin UI on `http://localhost:4173`.
+
 ## Backend API URL
 The UI includes an editable "API Base URL" field in the header area. Default value:
 
@@ -52,7 +55,7 @@ Google sign-in can be enabled at build/dev time with:
 
 `VITE_GOOGLE_CLIENT_ID`
 
-An example file is included at [`.env.example`](/Users/dkelly/Projects/wotlwedu/wotlwedu-browser/.env.example).
+An example file is included at `.env.example`.
 
 Examples:
 ```bash
@@ -87,6 +90,7 @@ helm upgrade --install wotlwedu-browser ./helm/wotlwedu-browser
 
 Notes:
 - The chart deploys the existing NGINX-based browser image and exposes HTTP on port `80`.
+- The image copies `nginx.conf`, which rewrites SPA routes to `index.html`.
 - Ingress TLS is handled at the Kubernetes ingress layer; the container itself does not terminate TLS.
 - The default API base URL is baked into the image at build time via `VITE_WOTLWEDU_API_BASE_URL`. If you need a different default in-cluster, build/publish the image with the desired build arg and point the chart at that image tag.
 - Users can still override the API base URL at runtime in the browser UI via local storage.
@@ -105,3 +109,4 @@ Notes:
 - When a system admin edits an item/picture/list/circle/space/poll, the category dropdown is populated from the categories owned by that object's creator.
 - Category-enabled collection endpoints can return grouped category menus via `?collapsible=true`.
 - Workgroup/organization IDs are optional in many flows; backend normalizes placeholder values (`""`, `"undefined"`, `"null"`).
+- Role capability controls support bulk capability assignment from the resource editor.
