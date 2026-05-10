@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import Loading from "../components/Loading";
 import { toApiError } from "../lib/api";
+import { getImageUploadExtension, validateImageUploadFile } from "../lib/uploadValidation";
 
 function coerceValue(type, value) {
   if (type === "checkbox") return Boolean(value);
@@ -405,11 +406,13 @@ export default function ResourcePage({ api, definition, session, scope }) {
     setError("");
     setSuccess("");
     try {
+      const validationError = validateImageUploadFile(uploadFile);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
       const formData = new FormData();
-      const name = uploadFile.name || "";
-      const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
-      const safeExt = ["png", "jpg", "jpeg"].includes(ext) ? ext : "jpg";
-      formData.append("fileextension", safeExt);
+      formData.append("fileextension", getImageUploadExtension(uploadFile));
       formData.append("imageUpload", uploadFile);
 
       const response = await api.post(`/picture/file/${selectedId}`, formData);

@@ -2,7 +2,7 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.24`
+Current version: `0.1.25`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).
@@ -79,6 +79,8 @@ Runtime behavior:
 - If `localStorage["wotlwedu_browser_api"]` exists, that value is used.
 - Otherwise, `VITE_WOTLWEDU_API_BASE_URL` is used.
 - If neither is set, the fallback is `https://api.wotlwedu.com:9876`.
+- API errors are normalized for operators, including rate limits, body-size limits, invalid uploads, and CORS/network failures. `401` clears the session; `403` is shown as an authorization error.
+- Picture uploads are prevalidated before calling `POST /picture/file/:imageId`. The browser console accepts PNG/JPEG files only and defaults to a 5 MB client-side limit. Override the client limit with `VITE_WOTLWEDU_IMAGE_UPLOAD_MAX_BYTES` when the backend uses a different `WOTLWEDU_UPLOAD_MAX_BYTES`.
 
 ## Helm
 A Helm chart is available under `helm/wotlwedu-browser`.

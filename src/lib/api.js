@@ -31,18 +31,45 @@ export function createApi(baseURL, onUnauthorized) {
     return config;
   });
 
-  api.interceptors.response.use((response) => {
-    if (response.status === 401 || response.status === 403) {
-      if (onUnauthorized) onUnauthorized(response);
-    }
-    return response;
-  });
+  api.interceptors.response.use(
+    (response) => {
+      if (response.status === 401) {
+        if (onUnauthorized) onUnauthorized(response);
+      }
+      return response;
+    },
+    (error) =>
+      Promise.reject(
+        toApiError(error?.response || null, error?.message || "Request failed")
+      )
+  );
 
   return api;
 }
 
 export function toApiError(response, fallback = "Request failed") {
-  if (!response) return new Error(fallback);
-  const msg = response.data?.message || fallback;
+  if (!response) {
+    return new Error(
+      `${fallback}. The API could not be reached. Check the API URL, HTTPS, and CORS configuration.`
+    );
+  }
+
+  if (response.status === 413) {
+    return new Error("File or request is too large. Choose a smaller file and try again.");
+  }
+
+  if (response.status === 421) {
+    return new Error(response.data?.message || "Invalid or unsupported image file.");
+  }
+
+  if (response.status === 429) {
+    const retryAfter = response.headers?.["retry-after"];
+    const retryText = retryAfter
+      ? ` Try again in ${retryAfter} second${retryAfter === "1" ? "" : "s"}.`
+      : "";
+    return new Error(`${response.data?.message || "Too many requests."}${retryText}`);
+  }
+
+  const msg = response.data?.message || response.data?.error || fallback;
   return new Error(`${msg} (HTTP ${response.status})`);
 }

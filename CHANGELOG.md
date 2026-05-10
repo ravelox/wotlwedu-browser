@@ -2,6 +2,11 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## 0.1.25 - 2026-05-10
+- Align browser-console auth/error handling with backend Priority 1 hardening: only `401` clears the session, while `403` stays visible as an authorization error.
+- Add rate-limit, body-size, upload-validation, and network/CORS-aware API error messages.
+- Validate picture uploads client-side before multipart submission, including PNG/JPEG extension, MIME type, and size checks.
+
 ## 0.1.24 - 2026-05-10
 - Refresh Codex agent guidance for the browser/admin repository.
 - Update README release metadata and deployment notes.

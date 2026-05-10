@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ErrorBanner } from "../components/Feedback";
 import logo from "../assets/logo.png";
+import { toApiError } from "../lib/api";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
@@ -34,7 +35,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
         if (response.status >= 400) {
           if (!cancelled) {
             setInvite(null);
-            setError(response.data?.message || "Invite not found");
+            setError(toApiError(response, "Invite not found").message);
           }
           return;
         }
@@ -71,7 +72,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
           inviteToken: inviteTokenRef.current || undefined,
         });
         if (loginResponse.status >= 400) {
-          setError(loginResponse.data?.message || "Google sign-in failed");
+          setError(toApiError(loginResponse, "Google sign-in failed").message);
           return;
         }
         if (loginResponse.data?.data?.linkRequired) {
@@ -162,7 +163,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
         return;
       }
       if (response.status >= 400) {
-        setError(response.data?.message || "Login failed");
+        setError(toApiError(response, "Login failed").message);
         return;
       }
       onLogin(response.data);
@@ -186,7 +187,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
       });
 
       if (response.status >= 400) {
-        setError(response.data?.message || "2FA verification failed");
+        setError(toApiError(response, "2FA verification failed").message);
         return;
       }
       onLogin(response.data);
@@ -211,7 +212,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
         const message =
           response.data?.message === "Invalid social link token"
             ? "Link confirmation expired. Sign in with Google again to restart linking."
-            : response.data?.message || "Google link confirmation failed";
+            : toApiError(response, "Google link confirmation failed").message;
         setError(message);
         return;
       }
