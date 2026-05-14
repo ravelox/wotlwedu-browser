@@ -1,7 +1,8 @@
 import axios from "axios";
-import { getAuthToken } from "./session";
+import { getAuthToken, getSession, setSession } from "./session";
 
 const API_VERSION = "v1";
+const USE_REFRESH_COOKIE = import.meta.env.VITE_WOTLWEDU_REFRESH_COOKIE_ENABLED === "true";
 
 function versionedBaseUrl(baseURL) {
   const trimmed = String(baseURL || "").replace(/\/+$/, "");
@@ -9,10 +10,39 @@ function versionedBaseUrl(baseURL) {
   return `${trimmed}/${API_VERSION}`;
 }
 
-export function createApi(baseURL, onUnauthorized) {
+function mergeSession(update) {
+  const current = getSession() || {};
+  const data = update?.data || update || {};
+  const next = {
+    ...current,
+    authToken: data.authToken || current.authToken,
+    refreshToken: data.refreshToken || current.refreshToken,
+    sessionId: data.sessionId || current.sessionId,
+    userId: data.userId || current.userId,
+    email: data.email || current.email,
+    alias: data.alias || current.alias,
+    systemAdmin:
+      data.systemAdmin === undefined ? current.systemAdmin : data.systemAdmin === true,
+    organizationAdmin:
+      data.organizationAdmin === undefined
+        ? current.organizationAdmin
+        : data.organizationAdmin === true,
+    workgroupAdmin:
+      data.workgroupAdmin === undefined
+        ? current.workgroupAdmin
+        : data.workgroupAdmin === true,
+    organizationId: data.organizationId || current.organizationId || null,
+    adminWorkgroupId: data.adminWorkgroupId || current.adminWorkgroupId || null,
+  };
+  setSession(next);
+  return next;
+}
+
+export function createApi(baseURL, onUnauthorized, onSessionRefresh) {
   const api = axios.create({
     baseURL: versionedBaseUrl(baseURL),
     timeout: 30000,
+    withCredentials: USE_REFRESH_COOKIE,
     validateStatus: () => true,
   });
 
@@ -32,7 +62,26 @@ export function createApi(baseURL, onUnauthorized) {
   });
 
   api.interceptors.response.use(
-    (response) => {
+    async (response) => {
+      const originalRequest = response.config || {};
+      const isRefreshRequest = String(originalRequest.url || "").includes("/login/refresh");
+      if (response.status === 401 && !originalRequest._retry && !isRefreshRequest) {
+        const refreshToken = getSession()?.refreshToken;
+        if (refreshToken) {
+          originalRequest._retry = true;
+          const refreshResponse = await api.post("/login/refresh", { refreshToken });
+          if (refreshResponse.status < 400) {
+            const nextSession = mergeSession(refreshResponse.data);
+            if (onSessionRefresh) onSessionRefresh(nextSession);
+            originalRequest.headers = {
+              ...(originalRequest.headers || {}),
+              Authorization: `Bearer ${nextSession.authToken}`,
+            };
+            return api(originalRequest);
+          }
+        }
+      }
+
       if (response.status === 401) {
         if (onUnauthorized) onUnauthorized(response);
       }

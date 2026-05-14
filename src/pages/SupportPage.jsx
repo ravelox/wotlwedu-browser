@@ -31,6 +31,7 @@ export default function SupportPage({ api, session }) {
     linkedProviders: [],
   });
   const [selectedAudits, setSelectedAudits] = useState([]);
+  const [selectedSessions, setSelectedSessions] = useState([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -114,15 +115,19 @@ export default function SupportPage({ api, session }) {
     setSelectedUser(user);
     setError("");
     try {
-      const [methodsResponse, auditsResponse] = await Promise.all([
+      const [methodsResponse, auditsResponse, sessionsResponse] = await Promise.all([
         api.get(`/support/people/${user.id}/signin-method`),
         api.get(`/support/people/${user.id}/authaudit`, { params: { items: 20 } }),
+        api.get(`/support/people/${user.id}/session`),
       ]);
       if (methodsResponse.status >= 400) {
         throw toApiError(methodsResponse, "Failed to load sign-in methods");
       }
       if (auditsResponse.status >= 400) {
         throw toApiError(auditsResponse, "Failed to load person audit activity");
+      }
+      if (sessionsResponse.status >= 400) {
+        throw toApiError(sessionsResponse, "Failed to load sessions");
       }
       setSelectedMethods(
         methodsResponse.data?.data?.methods || {
@@ -131,8 +136,45 @@ export default function SupportPage({ api, session }) {
         }
       );
       setSelectedAudits(auditsResponse.data?.data?.audits || []);
+      setSelectedSessions(sessionsResponse.data?.data?.sessions || []);
     } catch (err) {
       setError(err.message || "Failed to inspect person");
+    }
+  }
+
+  async function revokeUserSession(sessionId) {
+    if (!selectedUser?.id || !sessionId) return;
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.delete(
+        `/support/people/${selectedUser.id}/session/${sessionId}`
+      );
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to revoke session");
+      }
+      setSuccess("Session revoked.");
+      await inspectUser(selectedUser);
+    } catch (err) {
+      setError(err.message || "Failed to revoke session");
+    }
+  }
+
+  async function revokeAllUserSessions() {
+    if (!selectedUser?.id) return;
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.post(
+        `/support/people/${selectedUser.id}/session/revoke-all`
+      );
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to revoke sessions");
+      }
+      setSuccess("All sessions revoked.");
+      await inspectUser(selectedUser);
+    } catch (err) {
+      setError(err.message || "Failed to revoke sessions");
     }
   }
 
@@ -376,6 +418,46 @@ export default function SupportPage({ api, session }) {
                   </div>
                 </article>
               ))}
+            </div>
+            <div className="invite-stack" style={{ marginTop: 12 }}>
+              <article className="invite-card">
+                <div className="invite-card-header">
+                  <div>
+                    <strong>Sessions</strong>
+                    <p>Revoke active sessions for the selected person.</p>
+                  </div>
+                  <button className="btn btn-danger" onClick={revokeAllUserSessions} type="button">
+                    Revoke All
+                  </button>
+                </div>
+              </article>
+              {selectedSessions.map((row) => (
+                <article className="invite-card" key={row.id}>
+                  <div className="invite-card-header">
+                    <div>
+                      <strong>{row.revokedAt ? "Revoked session" : "Active session"}</strong>
+                      <p>{row.userAgent || "Unknown device"}</p>
+                    </div>
+                    <span className="status-chip">{row.revokedAt ? "Revoked" : "Active"}</span>
+                  </div>
+                  <div className="invite-meta">
+                    <span>Last used {row.lastUsedAt ? new Date(row.lastUsedAt).toLocaleString() : "Unknown"}</span>
+                    <span>Expires {row.expiresAt ? new Date(row.expiresAt).toLocaleString() : "Unknown"}</span>
+                  </div>
+                  {!row.revokedAt ? (
+                    <div className="actions">
+                      <button
+                        className="btn btn-danger"
+                        onClick={() => revokeUserSession(row.id)}
+                        type="button"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+              {!selectedSessions.length ? <div className="loading">No sessions found.</div> : null}
             </div>
             <div className="invite-stack" style={{ marginTop: 12 }}>
               {selectedAudits.map((audit) => (

@@ -10,7 +10,7 @@ function inviteStatusLabel(status) {
   return "Unknown";
 }
 
-export default function ProfilePage({ api, session }) {
+export default function ProfilePage({ api, session, onLogout }) {
   const [organization, setOrganization] = useState(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteFilter, setInviteFilter] = useState("all");
@@ -20,6 +20,7 @@ export default function ProfilePage({ api, session }) {
     linkedProviders: [],
   });
   const [userAudits, setUserAudits] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [organizationAudits, setOrganizationAudits] = useState([]);
   const [auditOutcomeFilter, setAuditOutcomeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,7 @@ export default function ProfilePage({ api, session }) {
       const requests = [
         api.get(`/person/${session.userId}/signin-method`),
         api.get(`/person/${session.userId}/authaudit`, { params: { items: 10 } }),
+        api.get("/login/session"),
       ];
 
       if (canManageOrganization) {
@@ -57,6 +59,7 @@ export default function ProfilePage({ api, session }) {
       const [
         signInResponse,
         userAuditResponse,
+        sessionResponse,
         organizationResponse,
         inviteResponse,
         organizationAuditResponse,
@@ -67,6 +70,9 @@ export default function ProfilePage({ api, session }) {
       }
       if (userAuditResponse.status >= 400) {
         throw toApiError(userAuditResponse, "Failed to load account activity");
+      }
+      if (sessionResponse.status >= 400) {
+        throw toApiError(sessionResponse, "Failed to load sessions");
       }
       if (organizationResponse && organizationResponse.status >= 400) {
         throw toApiError(organizationResponse, "Failed to load organization");
@@ -93,6 +99,7 @@ export default function ProfilePage({ api, session }) {
         }
       );
       setUserAudits(userAuditResponse.data?.data?.audits || []);
+      setSessions(sessionResponse.data?.data?.sessions || []);
       setOrganizationAudits(organizationAuditResponse?.data?.data?.audits || []);
     } catch (err) {
       setError(err.message || "Failed to load invitations");
@@ -206,6 +213,45 @@ export default function ProfilePage({ api, session }) {
     }
   }
 
+  async function revokeSession(sessionId) {
+    if (!sessionId) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.delete(`/login/session/${sessionId}`);
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to revoke session");
+      }
+      if (sessionId === session?.sessionId) {
+        onLogout?.();
+        return;
+      }
+      setSuccess("Session revoked.");
+      await loadInvites();
+    } catch (err) {
+      setError(err.message || "Failed to revoke session");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revokeAllSessions() {
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.post("/login/logout/all");
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to revoke sessions");
+      }
+      onLogout?.();
+    } catch (err) {
+      setError(err.message || "Failed to revoke sessions");
+      setSaving(false);
+    }
+  }
+
   function formatAudit(audit) {
     return audit?.message || `${audit?.eventType || "activity"} ${audit?.provider || ""}`.trim();
   }
@@ -239,6 +285,51 @@ export default function ProfilePage({ api, session }) {
                     : "Person"}
             </strong>
           </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="invite-card-header">
+          <div>
+            <h2>Sessions</h2>
+            <p className="muted-copy">Review and revoke active browser sessions.</p>
+          </div>
+          <button className="btn btn-secondary" disabled={saving} onClick={revokeAllSessions} type="button">
+            Logout All Devices
+          </button>
+        </div>
+        <div className="invite-stack">
+          {sessions.length ? (
+            sessions.map((row) => (
+              <article className="invite-card" key={row.id}>
+                <div className="invite-card-header">
+                  <div>
+                    <strong>{row.current ? "Current session" : "Session"}</strong>
+                    <p>{row.userAgent || "Unknown device"}</p>
+                  </div>
+                  <span className="status-chip">{row.revokedAt ? "Revoked" : "Active"}</span>
+                </div>
+                <div className="invite-meta">
+                  <span>Last used {row.lastUsedAt ? new Date(row.lastUsedAt).toLocaleString() : "Unknown"}</span>
+                  <span>Expires {row.expiresAt ? new Date(row.expiresAt).toLocaleString() : "Unknown"}</span>
+                </div>
+                {!row.revokedAt ? (
+                  <div className="actions">
+                    <button
+                      className="btn btn-danger"
+                      disabled={saving}
+                      onClick={() => revokeSession(row.id)}
+                      type="button"
+                    >
+                      {row.current ? "Logout This Device" : "Revoke"}
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            ))
+          ) : (
+            <div className="loading">No sessions found.</div>
+          )}
         </div>
       </section>
 

@@ -43,7 +43,7 @@ export default function App() {
       setSessionState(null);
       navigate("/login");
     };
-    return createApi(baseUrl, onUnauthorized);
+    return createApi(baseUrl, onUnauthorized, setSessionState);
   }, [baseUrl, navigate, session?.authToken]);
 
   const onLogin = (payload) => {
@@ -51,6 +51,7 @@ export default function App() {
     const nextSession = {
       authToken: loginData?.authToken,
       refreshToken: loginData?.refreshToken,
+      sessionId: loginData?.sessionId,
       userId: loginData?.userId,
       email: loginData?.email,
       alias: loginData?.alias,
@@ -70,7 +71,10 @@ export default function App() {
     navigate("/dashboard", { replace: true });
   };
 
-  const onLogout = () => {
+  const onLogout = async () => {
+    if (session?.authToken) {
+      await api.post("/login/logout").catch(() => null);
+    }
     clearSession();
     setSessionState(null);
     setActiveWorkgroupId(null);
@@ -170,7 +174,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage api={api} />} />
-                <Route path="/profile" element={<ProfilePage api={api} session={session} />} />
+                <Route path="/profile" element={<ProfilePage api={api} session={session} onLogout={onLogout} />} />
                 <Route path="/support" element={<SupportPage api={api} session={session} />} />
                 <Route path="/organizations" element={ResourceRoute("organizations")} />
                 <Route path="/spaces" element={ResourceRoute("workgroups")} />

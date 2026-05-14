@@ -81,6 +81,8 @@ Runtime behavior:
 - If neither is set, the fallback is `https://api.wotlwedu.com:9876`.
 - API errors are normalized for operators, including rate limits, body-size limits, invalid uploads, and CORS/network failures. `401` clears the session; `403` is shown as an authorization error.
 - Picture uploads are prevalidated before calling `POST /picture/file/:imageId`. The browser console accepts PNG/JPEG files only and defaults to a 5 MB client-side limit. Override the client limit with `VITE_WOTLWEDU_IMAGE_UPLOAD_MAX_BYTES` when the backend uses a different `WOTLWEDU_UPLOAD_MAX_BYTES`.
+- Expired access tokens are refreshed automatically through `/login/refresh` when a refresh token is present. Set `VITE_WOTLWEDU_REFRESH_COOKIE_ENABLED=true` when the backend stores refresh tokens in HTTP-only cookies.
+- Profile shows active sessions and supports device revocation; Support can inspect and revoke sessions for selected people.
 
 ## Helm
 A Helm chart is available under `helm/wotlwedu-browser`.

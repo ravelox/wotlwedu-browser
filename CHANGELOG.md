@@ -2,6 +2,11 @@
 
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
+## Unreleased
+- Automatically refresh expired access tokens with refresh-token rotation.
+- Add Profile controls to view/revoke active sessions and log out all devices.
+- Add support-console session visibility and revocation for selected people.
+
 ## 0.1.25 - 2026-05-10
 - Align browser-console auth/error handling with backend Priority 1 hardening: only `401` clears the session, while `403` stays visible as an authorization error.
 - Add rate-limit, body-size, upload-validation, and network/CORS-aware API error messages.
