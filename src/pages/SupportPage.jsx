@@ -22,6 +22,10 @@ export default function SupportPage({ api, session }) {
   const [userId, setUserId] = useState("");
   const [overview, setOverview] = useState(null);
   const [audits, setAudits] = useState([]);
+  const [publicOverview, setPublicOverview] = useState(null);
+  const [publicAudits, setPublicAudits] = useState([]);
+  const [publicPollId, setPublicPollId] = useState("");
+  const [moderationReason, setModerationReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -74,6 +78,25 @@ export default function SupportPage({ api, session }) {
       }
       setOverview(overviewResponse.data?.data || null);
       setAudits(auditResponse.data?.data?.audits || []);
+      const publicParams = {
+        ...scopeParams,
+        days,
+        ...(publicPollId.trim() ? { electionId: publicPollId.trim() } : {}),
+      };
+      const [publicOverviewResponse, publicAuditResponse] = await Promise.all([
+        api.get("/support/publicpoll/overview", { params: publicParams }),
+        api.get("/support/publicpoll/audit", {
+          params: { ...publicParams, items: 25, page: 1 },
+        }),
+      ]);
+      if (publicOverviewResponse.status >= 400) {
+        throw toApiError(publicOverviewResponse, "Failed to load public poll overview");
+      }
+      if (publicAuditResponse.status >= 400) {
+        throw toApiError(publicAuditResponse, "Failed to load public poll audit feed");
+      }
+      setPublicOverview(publicOverviewResponse.data?.data || null);
+      setPublicAudits(publicAuditResponse.data?.data?.audits || []);
     } catch (err) {
       setError(err.message || "Failed to load support data");
     } finally {
@@ -83,7 +106,7 @@ export default function SupportPage({ api, session }) {
 
   useEffect(() => {
     loadSupportData().catch(() => {});
-  }, [session?.organizationId, session?.systemAdmin, days, eventType, outcome, provider, email, userId, organizationId]);
+  }, [session?.organizationId, session?.systemAdmin, days, eventType, outcome, provider, email, userId, organizationId, publicPollId]);
 
   async function searchUsers(event) {
     event.preventDefault();
@@ -175,6 +198,25 @@ export default function SupportPage({ api, session }) {
       await inspectUser(selectedUser);
     } catch (err) {
       setError(err.message || "Failed to revoke sessions");
+    }
+  }
+
+  async function moderatePublicPoll(electionId, action) {
+    if (!electionId) return;
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.post(`/support/publicpoll/${electionId}/moderation`, {
+        action,
+        reason: moderationReason || "support console action",
+      });
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to moderate public poll");
+      }
+      setSuccess("Public poll moderation action applied.");
+      await loadSupportData();
+    } catch (err) {
+      setError(err.message || "Failed to moderate public poll");
     }
   }
 
@@ -328,6 +370,91 @@ export default function SupportPage({ api, session }) {
             ))
           ) : (
             <p style={{ color: "var(--muted)" }}>No recent non-success events.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>Public Poll Abuse</h2>
+        <div className="form-grid">
+          <label className="field">
+            <span>Poll ID</span>
+            <input value={publicPollId} onChange={(e) => setPublicPollId(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Moderation Reason</span>
+            <input
+              value={moderationReason}
+              onChange={(e) => setModerationReason(e.target.value)}
+              placeholder="Visible in audit metadata"
+            />
+          </label>
+        </div>
+        <div className="dashboard-grid" style={{ marginTop: 12 }}>
+          <article className="panel">
+            <h3>Total Events</h3>
+            <div className="metric">{publicOverview?.totals?.totalEvents ?? 0}</div>
+          </article>
+          <article className="panel">
+            <h3>Reports</h3>
+            <div className="metric">{publicOverview?.totals?.reportCount ?? 0}</div>
+          </article>
+          <article className="panel">
+            <h3>Blocked</h3>
+            <div className="metric">{publicOverview?.totals?.blockedCount ?? 0}</div>
+          </article>
+          <article className="panel">
+            <h3>Public Polls</h3>
+            <div className="metric">{publicOverview?.totals?.uniqueElections ?? 0}</div>
+          </article>
+        </div>
+        <div className="invite-stack" style={{ marginTop: 12 }}>
+          {publicAudits.length ? (
+            publicAudits.map((audit) => (
+              <article className="invite-card" key={audit.id}>
+                <div className="invite-card-header">
+                  <div>
+                    <strong>{audit.election?.name || audit.electionId || audit.eventType}</strong>
+                    <p>{formatAudit(audit)}</p>
+                  </div>
+                  <span className={`status-chip status-${audit.outcome || "unknown"}`}>
+                    {audit.outcome || "unknown"}
+                  </span>
+                </div>
+                <div className="invite-meta">
+                  <span>{audit.eventType}</span>
+                  <span>{audit.createdAt ? new Date(audit.createdAt).toLocaleString() : "Unknown"}</span>
+                  {audit.election?.abuseStatus ? <span>{audit.election.abuseStatus}</span> : null}
+                </div>
+                {audit.electionId ? (
+                  <div className="actions">
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => moderatePublicPoll(audit.electionId, "lock")}
+                      type="button"
+                    >
+                      Lock
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => moderatePublicPoll(audit.electionId, "restore")}
+                      type="button"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => moderatePublicPoll(audit.electionId, "remove_public_access")}
+                      type="button"
+                    >
+                      Remove Public Access
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            ))
+          ) : (
+            <p style={{ color: "var(--muted)" }}>No public poll abuse events matched the current filter.</p>
           )}
         </div>
       </section>

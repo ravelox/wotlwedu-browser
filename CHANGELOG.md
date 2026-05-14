@@ -3,6 +3,7 @@
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
 ## Unreleased
+- Add public-poll abuse review and moderation controls to Support, including lock, restore, and remove-public-access actions.
 - Automatically refresh expired access tokens with refresh-token rotation.
 - Add Profile controls to view/revoke active sessions and log out all devices.
 - Add support-console session visibility and revocation for selected people.
