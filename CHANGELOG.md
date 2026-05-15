@@ -4,6 +4,9 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.31 - 2026-05-15
+- Complete Priority 7 support workflows with full-result audit CSV exports, operations dashboard cards, account recovery actions, and ownership transfer remediation from the Support console.
+
 ## 0.1.30 - 2026-05-15
 - Add a Backup console page for whole-system, organization, and space-scoped JSON export/restore operations.
 

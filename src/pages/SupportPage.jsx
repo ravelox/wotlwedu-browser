@@ -17,6 +17,16 @@ function formatMethod(method) {
   return `${method.provider || "provider"}${method.email ? ` • ${method.email}` : ""}`;
 }
 
+const OWNERSHIP_RESOURCES = [
+  "categories",
+  "groups",
+  "images",
+  "items",
+  "lists",
+  "workgroups",
+  "elections",
+];
+
 export default function SupportPage({
   api,
   session,
@@ -34,6 +44,7 @@ export default function SupportPage({
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState("");
   const [overview, setOverview] = useState(null);
+  const [opsOverview, setOpsOverview] = useState(null);
   const [audits, setAudits] = useState([]);
   const [auditPage, setAuditPage] = useState(1);
   const [auditTotal, setAuditTotal] = useState(0);
@@ -53,6 +64,11 @@ export default function SupportPage({
   });
   const [selectedAudits, setSelectedAudits] = useState([]);
   const [selectedSessions, setSelectedSessions] = useState([]);
+  const [recoveryResult, setRecoveryResult] = useState(null);
+  const [transferTargetUserId, setTransferTargetUserId] = useState("");
+  const [transferResources, setTransferResources] = useState(["items", "lists", "elections"]);
+  const [transferIncludeLinked, setTransferIncludeLinked] = useState(true);
+  const [transferPreview, setTransferPreview] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -101,11 +117,12 @@ export default function SupportPage({
         ...(email.trim() ? { email: email.trim() } : {}),
         ...(userId.trim() ? { userId: userId.trim() } : {}),
       };
-      const [overviewResponse, auditResponse] = await Promise.all([
+      const [overviewResponse, auditResponse, opsResponse] = await Promise.all([
         api.get("/support/auth/overview", { params }),
         api.get("/support/auth/audit", {
           params: { ...params, items: 25, page: nextAuditPage },
         }),
+        api.get("/support/ops/overview", { params: scopeParams }),
       ]);
       if (overviewResponse.status >= 400) {
         throw toApiError(overviewResponse, "Failed to load support overview");
@@ -113,7 +130,11 @@ export default function SupportPage({
       if (auditResponse.status >= 400) {
         throw toApiError(auditResponse, "Failed to load support audit feed");
       }
+      if (opsResponse.status >= 400) {
+        throw toApiError(opsResponse, "Failed to load operations dashboard");
+      }
       setOverview(overviewResponse.data?.data || null);
+      setOpsOverview(opsResponse.data?.data || null);
       setAudits(auditResponse.data?.data?.audits || []);
       setAuditPage(auditResponse.data?.data?.page || nextAuditPage);
       setAuditTotal(auditResponse.data?.data?.total || 0);
@@ -207,6 +228,9 @@ export default function SupportPage({
       );
       setSelectedAudits(auditsResponse.data?.data?.audits || []);
       setSelectedSessions(sessionsResponse.data?.data?.sessions || []);
+      setRecoveryResult(null);
+      setTransferPreview(null);
+      setTransferTargetUserId("");
     } catch (err) {
       setError(err.message || "Failed to inspect person");
     }
@@ -287,6 +311,78 @@ export default function SupportPage({
     }
   }
 
+  async function runRecoveryAction(action, reasonOverride = "") {
+    if (!selectedUser?.id) return;
+    setError("");
+    setSuccess("");
+    setRecoveryResult(null);
+    try {
+      const path =
+        action === "password-reset"
+          ? `/support/people/${selectedUser.id}/recovery/password-reset`
+          : action === "clear-2fa"
+            ? `/support/people/${selectedUser.id}/recovery/clear-2fa`
+            : `/support/people/${selectedUser.id}/recovery/verify`;
+      const response = await api.post(path, {
+        reason: reasonOverride || "support console recovery",
+        sendEmail: true,
+      });
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to run recovery action");
+      }
+      const recovery = response.data?.data?.recovery || null;
+      setSuccess("Recovery action completed.");
+      await inspectUser(selectedUser);
+      setRecoveryResult(recovery);
+    } catch (err) {
+      setError(err.message || "Failed to run recovery action");
+    }
+  }
+
+  async function previewOwnershipTransfer() {
+    if (!selectedUser?.id || !transferTargetUserId) return;
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.get(`/support/people/${selectedUser.id}/ownership/preview`, {
+        params: {
+          ownerId: transferTargetUserId,
+          includeLinked: transferIncludeLinked ? "true" : "false",
+          resources: transferResources.join(","),
+        },
+      });
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to preview ownership transfer");
+      }
+      setTransferPreview(response.data?.data?.transfer || null);
+    } catch (err) {
+      setError(err.message || "Failed to preview ownership transfer");
+    }
+  }
+
+  async function applyOwnershipTransfer(reasonOverride = "") {
+    if (!selectedUser?.id || !transferTargetUserId) return;
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.post(`/support/people/${selectedUser.id}/ownership/transfer`, {
+        ownerId: transferTargetUserId,
+        includeLinked: transferIncludeLinked,
+        resources: transferResources,
+        reason: reasonOverride || "support ownership remediation",
+      });
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to transfer ownership");
+      }
+      const transfer = response.data?.data?.transfer || null;
+      setSuccess("Ownership transferred.");
+      await inspectUser(selectedUser);
+      setTransferPreview(transfer);
+    } catch (err) {
+      setError(err.message || "Failed to transfer ownership");
+    }
+  }
+
   async function executeConfirmed(reason) {
     const action = confirmAction;
     if (!action) return;
@@ -299,7 +395,21 @@ export default function SupportPage({
       await revokeUserSession(action.sessionId);
     } else if (action.kind === "revoke-all-sessions") {
       await revokeAllUserSessions();
+    } else if (action.kind === "recovery") {
+      await runRecoveryAction(action.action, reason);
+    } else if (action.kind === "ownership-transfer") {
+      await applyOwnershipTransfer(reason);
     }
+  }
+
+  function downloadCsv(filename, csv) {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   function exportCsv(filename, rows) {
@@ -312,13 +422,49 @@ export default function SupportPage({
           .join(",")
       ),
     ];
-    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(filename, csvRows.join("\n"));
+  }
+
+  async function exportAudit(kind) {
+    if (!requireSafeScope()) return;
+    setError("");
+    setSuccess("");
+    try {
+      const params =
+        kind === "auth"
+          ? {
+              ...scopeParams,
+              ...(eventType.trim() ? { eventType: eventType.trim() } : {}),
+              ...(outcome.trim() ? { outcome: outcome.trim() } : {}),
+              ...(provider.trim() ? { provider: provider.trim() } : {}),
+              ...(email.trim() ? { email: email.trim() } : {}),
+              ...(userId.trim() ? { userId: userId.trim() } : {}),
+            }
+          : {
+              ...scopeParams,
+              ...(publicPollId.trim() ? { electionId: publicPollId.trim() } : {}),
+            };
+      const response = await api.get(
+        kind === "auth" ? "/support/auth/audit/export" : "/support/publicpoll/audit/export",
+        { params }
+      );
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to export audit data");
+      }
+      const data = response.data?.data || {};
+      downloadCsv(data.filename || `wotlwedu-${kind}-audit.csv`, data.csv || "");
+      setSuccess(`Exported ${data.total ?? 0} audit rows.`);
+    } catch (err) {
+      setError(err.message || "Failed to export audit data");
+    }
+  }
+
+  function toggleTransferResource(resource) {
+    setTransferResources((current) =>
+      current.includes(resource)
+        ? current.filter((item) => item !== resource)
+        : [...current, resource]
+    );
   }
 
   if (!canAccessSupport) {
@@ -413,16 +559,14 @@ export default function SupportPage({
           <button
             className="btn btn-secondary"
             type="button"
-            disabled={!audits.length}
-            onClick={() => exportCsv("wotlwedu-auth-audit.csv", audits)}
+            onClick={() => exportAudit("auth")}
           >
             Export Auth CSV
           </button>
           <button
             className="btn btn-secondary"
             type="button"
-            disabled={!publicAudits.length}
-            onClick={() => exportCsv("wotlwedu-public-poll-audit.csv", publicAudits)}
+            onClick={() => exportAudit("public")}
           >
             Export Public CSV
           </button>
@@ -432,6 +576,42 @@ export default function SupportPage({
           <span>Organization: {effectiveOrganizationId || "global"}</span>
           <span>Window: {days} day{Number(days) === 1 ? "" : "s"}</span>
           {isGlobalScope ? <span className="danger-text">Global mode</span> : null}
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2>Operations Dashboards</h2>
+        <div className="dashboard-grid">
+          <article className="panel">
+            <h3>Auth / Invites</h3>
+            <div className="metric">{opsOverview?.auth?.recentFailures24h ?? 0}</div>
+            <p className="muted-line">auth or invite failures in 24h</p>
+          </article>
+          <article className="panel">
+            <h3>Mail Delivery</h3>
+            <div className="metric">{opsOverview?.mail?.recentFailures24h ?? 0}</div>
+            <p className="muted-line">{opsOverview?.mail?.provider || "configured"} provider</p>
+          </article>
+          <article className="panel">
+            <h3>Storage Usage</h3>
+            <div className="metric">{opsOverview?.storage?.imageCount ?? 0}</div>
+            <p className="muted-line">{opsOverview?.storage?.provider || "local"} media provider</p>
+          </article>
+          <article className="panel">
+            <h3>DB Updates</h3>
+            <div className="metric">{opsOverview?.updates?.count ?? 0}</div>
+            <p className="muted-line">metadata-tracked migrations</p>
+          </article>
+          <article className="panel">
+            <h3>Active Sessions</h3>
+            <div className="metric">{opsOverview?.sessions?.active ?? 0}</div>
+            <p className="muted-line">{opsOverview?.sessions?.revoked ?? 0} revoked sessions</p>
+          </article>
+          <article className="panel">
+            <h3>Public Poll Abuse</h3>
+            <div className="metric">{publicOverview?.totals?.reportCount ?? 0}</div>
+            <p className="muted-line">{publicOverview?.totals?.blockedCount ?? 0} blocked invite events</p>
+          </article>
         </div>
       </section>
 
@@ -756,6 +936,144 @@ export default function SupportPage({
               ))}
             </div>
             <div className="invite-stack" style={{ marginTop: 12 }}>
+              <article className="invite-card">
+                <div className="invite-card-header">
+                  <div>
+                    <strong>Account Recovery</strong>
+                    <p>Generate recovery links, clear blocked sign-in factors, and verify access after support review.</p>
+                  </div>
+                </div>
+                <div className="actions">
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => setConfirmAction({
+                      kind: "recovery",
+                      action: "password-reset",
+                      title: "Send password reset",
+                      tenant: selectedUser.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                      target: selectedUser.id,
+                      impact: "A password reset token is generated and emailed to the selected person.",
+                    })}
+                  >
+                    Send Reset
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => setConfirmAction({
+                      kind: "recovery",
+                      action: "clear-2fa",
+                      title: "Clear two-factor authentication",
+                      tenant: selectedUser.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                      target: selectedUser.id,
+                      impact: "Two-factor authentication is disabled for the selected person.",
+                    })}
+                  >
+                    Clear 2FA
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => setConfirmAction({
+                      kind: "recovery",
+                      action: "verify",
+                      title: "Verify and activate account",
+                      tenant: selectedUser.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                      target: selectedUser.id,
+                      impact: "The selected account is marked verified and active.",
+                    })}
+                  >
+                    Verify Account
+                  </button>
+                </div>
+                {recoveryResult?.resetUrl ? (
+                  <label className="field field-full" style={{ marginTop: 12 }}>
+                    <span>Recovery Link</span>
+                    <input value={recoveryResult.resetUrl} readOnly />
+                  </label>
+                ) : null}
+              </article>
+
+              <article className="invite-card">
+                <div className="invite-card-header">
+                  <div>
+                    <strong>Ownership Remediation</strong>
+                    <p>Move resource ownership to another person in the same organization before deactivation or cleanup.</p>
+                  </div>
+                </div>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>New Owner</span>
+                    <SearchPicker
+                      api={api}
+                      path="/person"
+                      listKey="users"
+                      value={transferTargetUserId}
+                      onChange={setTransferTargetUserId}
+                      params={selectedUser.organizationId ? { organizationId: selectedUser.organizationId } : scopeParams}
+                      placeholder="Search people"
+                    />
+                  </label>
+                  <label className="field checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={transferIncludeLinked}
+                      onChange={(event) => setTransferIncludeLinked(event.target.checked)}
+                    />
+                    <span>Include linked ownership fields</span>
+                  </label>
+                </div>
+                <div className="actions">
+                  {OWNERSHIP_RESOURCES.map((resource) => (
+                    <label className="checkbox-field compact-checkbox" key={resource}>
+                      <input
+                        type="checkbox"
+                        checked={transferResources.includes(resource)}
+                        onChange={() => toggleTransferResource(resource)}
+                      />
+                      <span>{resource}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="actions">
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    disabled={!transferTargetUserId || !transferResources.length}
+                    onClick={previewOwnershipTransfer}
+                  >
+                    Preview Transfer
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    type="button"
+                    disabled={!transferPreview || !transferTargetUserId}
+                    onClick={() => setConfirmAction({
+                      kind: "ownership-transfer",
+                      title: "Transfer ownership",
+                      tenant: selectedUser.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                      target: `${selectedUser.id} to ${transferTargetUserId}`,
+                      impact: "Selected resource ownership is reassigned. This action is audit logged.",
+                    })}
+                  >
+                    Apply Transfer
+                  </button>
+                </div>
+                {transferPreview ? (
+                  <div className="scope-banner" style={{ marginTop: 12 }}>
+                    <strong>Preview</strong>
+                    <span>
+                      Direct: {Object.values(transferPreview.direct || {}).reduce((sum, value) => sum + Number(value || 0), 0)}
+                    </span>
+                    <span>
+                      Linked: {Object.values(transferPreview.linked || {}).reduce((sum, value) => sum + Number(value || 0), 0)}
+                    </span>
+                    <span>Resources: {(transferPreview.resources || []).join(", ") || "none"}</span>
+                  </div>
+                ) : null}
+              </article>
+
               <article className="invite-card">
                 <div className="invite-card-header">
                   <div>
