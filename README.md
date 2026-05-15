@@ -2,7 +2,7 @@
 
 Desktop-first browser frontend for `wotlwedu-backend`.
 
-Current version: `0.1.29`
+Current version: `0.1.30`
 
 ## Features
 - Modern responsive UI optimized for desktop workflows (not mobile-first).
@@ -13,6 +13,7 @@ Current version: `0.1.29`
 - Linked sign-in method visibility plus unlink controls for removable social identities.
 - Account activity and organization audit feeds for support/admin review.
 - Dedicated `Support` console for scoped auth/invite observability, paginated audit export, public-poll abuse moderation, recipient suppression, recent failures, and targeted user investigation.
+- Dedicated `Backup` console for whole-system, organization, and space-scoped JSON export/restore operations.
 - Tenant-aware organization/space scope controls, explicit global-mode confirmation, and server-backed searchable pickers for large admin datasets.
 - Tenant-aware administration screens for:
   - organizations

@@ -4,6 +4,9 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.30 - 2026-05-15
+- Add a Backup console page for whole-system, organization, and space-scoped JSON export/restore operations.
+
 ## 0.1.29 - 2026-05-15
 - Render profile account and organization audit feeds as tabular operator views instead of cards.
 

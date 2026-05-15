@@ -214,6 +214,27 @@ nav { display: grid; gap: 6px; }
   display: grid;
   gap: 14px;
 }
+.backup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.backup-grid h3 {
+  margin-top: 0;
+}
+.scope-note {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.metric-small {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
 .config-filter {
   margin-bottom: 12px;
 }
@@ -723,6 +744,7 @@ pre {
   }
   .dashboard-grid,
   .ai-grid,
+  .backup-grid,
   .form-grid,
   .profile-grid,
   .invite-form { grid-template-columns: 1fr; }
