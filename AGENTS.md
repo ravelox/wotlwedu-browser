@@ -5,7 +5,7 @@ Local instructions for Codex-style agents working in this repository.
 ## Repo Summary
 
 - App: desktop-first admin/support browser UI for `wotlwedu-backend`.
-- Package: `wotlwedu-browser` version `0.1.27`.
+- Package: `wotlwedu-browser` version `0.1.28`.
 - Stack: React 18, Vite 5, React Router 6, Axios.
 - Deploy target: static bundle served by Nginx.
 - Default backend: `https://api.wotlwedu.com:9876`.

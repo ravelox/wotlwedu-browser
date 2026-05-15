@@ -1,65 +1,27 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import { toApiError } from "../lib/api";
+import { ConfirmActionModal, SearchPicker } from "../components/AdminControls";
 
-export default function TokenLabPage({ api, session, onApplyToken }) {
+export default function TokenLabPage({ api, session, scope, onApplyToken }) {
   const [targetUserId, setTargetUserId] = useState(session?.userId || "");
-  const [targetUserQuery, setTargetUserQuery] = useState("");
-  const [allUsers, setAllUsers] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
   const [expiresInMinutes, setExpiresInMinutes] = useState(60);
   const [result, setResult] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const getUserLabel = (user) => {
-    if (!user) return "";
-    return user.fullName || user.alias || user.email || user.id || "";
-  };
+  const tenantLabel = scope?.activeOrganizationId || "Global / cross-tenant";
+  const userSearchParams = scope?.activeOrganizationId
+    ? { organizationId: scope.activeOrganizationId }
+    : {};
 
-  useEffect(() => {
-    if (session?.systemAdmin !== true) return;
-    let cancelled = false;
-    const loadUsers = async () => {
-      setUsersLoading(true);
-      try {
-        const response = await api.get("/person", {
-          params: { page: 1, items: 1000 },
-        });
-        if (response.status >= 400) {
-          throw toApiError(response, "Failed to load people");
-        }
-        const users = response.data?.data?.users || response.data?.users || [];
-        if (!cancelled) {
-          setAllUsers(Array.isArray(users) ? users : []);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err.message);
-        }
-      } finally {
-        if (!cancelled) {
-          setUsersLoading(false);
-        }
-      }
-    };
-    loadUsers();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, session?.systemAdmin]);
-
-  useEffect(() => {
-    if (!targetUserId) {
-      setTargetUserQuery("");
+  const onGenerate = async (reason = "") => {
+    if (!scope?.activeOrganizationId && !scope?.globalModeConfirmed) {
+      setError("Choose an organization or confirm global mode before generating a support token.");
       return;
     }
-    const selectedUser = allUsers.find((user) => user.id === targetUserId);
-    setTargetUserQuery(selectedUser ? getUserLabel(selectedUser) : targetUserId);
-  }, [allUsers, targetUserId]);
-
-  const onGenerate = async () => {
     setLoading(true);
     setError("");
     setSuccess("");
@@ -68,6 +30,7 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
       const response = await api.post("/support/session/testtoken", {
         userId: targetUserId,
         expiresInMinutes: Number(expiresInMinutes),
+        reason,
       });
       if (response.status >= 400) {
         throw toApiError(response, "Failed to generate token");
@@ -92,10 +55,10 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
     }
   };
 
-  const onUseToken = () => {
+  const onUseToken = (reason = "") => {
     if (!result?.authToken) return;
     onApplyToken(result);
-    setSuccess(`Applied token for ${result.userId} to current browser session`);
+    setSuccess(`Applied token for ${result.userId} to current browser session${reason ? `: ${reason}` : ""}`);
   };
 
   const onRevoke = async () => {
@@ -144,35 +107,15 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
       <div className="form-grid">
         <label className="field">
           <span>Person Name</span>
-          <input
-            type="text"
-            list="token-lab-user-options"
-            value={targetUserQuery}
-            onChange={(e) => {
-              const query = e.target.value;
-              const trimmed = query.trim();
-              const byLabel = allUsers.find((user) => {
-                const label = getUserLabel(user);
-                return label.toLowerCase() === trimmed.toLowerCase();
-              });
-              const byId = allUsers.find((user) => user.id === trimmed);
-              setTargetUserQuery(query);
-              setTargetUserId(byLabel?.id || byId?.id || "");
-            }}
-            placeholder="Type name, alias, or email"
+          <SearchPicker
+            api={api}
+            path="/person"
+            listKey="users"
+            value={targetUserId}
+            onChange={setTargetUserId}
+            params={userSearchParams}
+            placeholder="Search people"
           />
-          <datalist id="token-lab-user-options">
-            {allUsers.map((user) => (
-              <option key={user.id} value={getUserLabel(user)} />
-            ))}
-          </datalist>
-          <small style={{ color: "var(--muted)" }}>
-            {usersLoading
-              ? "Loading people..."
-              : targetUserId
-                ? `Selected ID: ${targetUserId}`
-                : "Select a person by name, alias, or email."}
-          </small>
         </label>
         <label className="field">
           <span>Token Duration (minutes)</span>
@@ -188,13 +131,37 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
       </div>
 
       <div className="actions">
-        <button className="btn" onClick={onGenerate} disabled={loading || !targetUserId}>
+        <button
+          className="btn"
+          onClick={() =>
+            setConfirmAction({
+              kind: "generate",
+              title: "Generate support token",
+              tenant: tenantLabel,
+              target: targetUserId,
+              impact: "A temporary bearer token will be issued for the selected user.",
+            })
+          }
+          disabled={loading || !targetUserId}
+        >
           {loading ? "Generating..." : "Generate Token"}
         </button>
         <button className="btn btn-secondary" onClick={onCopy} disabled={!result?.authToken}>
           Copy Token
         </button>
-        <button className="btn btn-secondary" onClick={onUseToken} disabled={!result?.authToken}>
+        <button
+          className="btn btn-secondary"
+          onClick={() =>
+            setConfirmAction({
+              kind: "use-token",
+              title: "Use token in session",
+              tenant: tenantLabel,
+              target: result?.userId,
+              impact: "This browser console will switch to the selected user's permissions.",
+            })
+          }
+          disabled={!result?.authToken}
+        >
           Use In Session
         </button>
         <button
@@ -218,6 +185,17 @@ export default function TokenLabPage({ api, session, onApplyToken }) {
           </small>
         </div>
       )}
+      <ConfirmActionModal
+        action={confirmAction}
+        busy={loading}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={(reason) => {
+          const action = confirmAction;
+          setConfirmAction(null);
+          if (action?.kind === "generate") onGenerate(reason);
+          if (action?.kind === "use-token") onUseToken(reason);
+        }}
+      />
     </div>
   );
 }

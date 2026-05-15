@@ -3,6 +3,11 @@ import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import Loading from "../components/Loading";
 import { toApiError } from "../lib/api";
 import { getImageUploadExtension, validateImageUploadFile } from "../lib/uploadValidation";
+import {
+  ConfirmActionModal,
+  PaginationControls,
+  SearchPicker,
+} from "../components/AdminControls";
 
 function coerceValue(type, value) {
   if (type === "checkbox") return Boolean(value);
@@ -21,12 +26,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
-  const [comboQueries, setComboQueries] = useState({});
-  const [allOrganizations, setAllOrganizations] = useState([]);
   const [uploadFile, setUploadFile] = useState(null);
   const [allCapabilities, setAllCapabilities] = useState([]);
-  const [allCategories, setAllCategories] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
+  const [capabilityFilter, setCapabilityFilter] = useState("");
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState([]);
   const [initialCapabilityIds, setInitialCapabilityIds] = useState([]);
   const [selectedRoleProtected, setSelectedRoleProtected] = useState(false);
@@ -38,15 +40,24 @@ export default function ResourcePage({ api, definition, session, scope }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [filter, setFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const fields = definition.fields;
   const idField = definition.idField;
   const isRoleResource = definition.path === "/role";
   const isCategoryResource = definition.path === "/category";
-  const hasOrganizationCombobox = fields.some(([, , type]) => type === "organization-combobox");
-  const hasUserCombobox = fields.some(([, , type]) => type === "user-combobox");
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
   const canChooseCategoryOwner = session?.systemAdmin === true;
+  const tenantLabel =
+    scope?.activeOrganizationId ||
+    scopedOrganizationId ||
+    session?.organizationId ||
+    "Global / cross-tenant";
 
   const isProtectedRole = (role) =>
     role?.protected === true || role?.protected === 1 || role?.protected === "1";
@@ -80,62 +91,19 @@ export default function ResourcePage({ api, definition, session, scope }) {
     session?.userId,
   ]);
 
-  const loadUsers = async () => {
-    if (!canChooseCategoryOwner && !hasUserCombobox) {
-      setAllUsers([]);
-      return;
-    }
-    try {
-      const response = await api.get("/person", {
-        params: { page: 1, items: 1000 },
-      });
-      if (response.status >= 400) throw toApiError(response, "Failed to load people");
-      const items = response.data?.data?.users || response.data?.users || [];
-      setAllUsers(Array.isArray(items) ? items : []);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const getOrganizationLabel = (organizationId) => {
-    if (!organizationId) return "";
-    const organization = allOrganizations.find((org) => org.id === organizationId);
-    return organization?.name || organizationId;
-  };
-
-  const getUserLabel = (userId) => {
-    if (!userId) return "";
-    const user = allUsers.find((entry) => entry.id === userId);
-    return user?.fullName || user?.alias || user?.email || user?.id || userId;
-  };
-
-  const listOrganizations = async () => {
-    if (!hasOrganizationCombobox) {
-      setAllOrganizations([]);
-      return;
-    }
-    try {
-      const response = await api.get("/organization", {
-        params: { page: 1, items: 1000 },
-      });
-      if (response.status >= 400) throw toApiError(response, "Failed to load organizations");
-      const items =
-        response.data?.data?.organizations || response.data?.organizations || [];
-      setAllOrganizations(Array.isArray(items) ? items : []);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const listRows = async () => {
+  const listRows = async (nextPage = page) => {
     setLoading(true);
     setError("");
     try {
       const response = await api.get(definition.path, {
         params: {
-          page: 1,
-          items: 100,
+          page: nextPage,
+          items: itemsPerPage,
           filter: filter || undefined,
+          organizationId:
+            definition.path === "/space" && scope?.activeOrganizationId
+              ? scope.activeOrganizationId
+              : undefined,
           creator:
             isCategoryResource && canChooseCategoryOwner && categoryOwnerId
               ? categoryOwnerId
@@ -148,7 +116,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
       });
       if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title}`);
       const items = response.data?.data?.[definition.listKey] || response.data?.[definition.listKey] || [];
-      setRows(items);
+      setRows(Array.isArray(items) ? items : []);
+      setTotal(Number(response.data?.data?.total ?? response.data?.total ?? items.length ?? 0));
+      setPage(Number(response.data?.data?.page ?? nextPage));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -160,39 +130,12 @@ export default function ResourcePage({ api, definition, session, scope }) {
     if (!isRoleResource) return;
     try {
       const response = await api.get("/capability", {
-        params: { page: 1, items: 1000 },
+        params: { page: 1, items: 50, filter: capabilityFilter || undefined },
       });
       if (response.status >= 400) throw toApiError(response, "Failed to load capabilities");
       const items =
         response.data?.data?.capabilities || response.data?.capabilities || [];
       setAllCapabilities(Array.isArray(items) ? items : []);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const listCategories = async (ownerId) => {
-    if (!hasCategoryField && !isCategoryResource) {
-      setAllCategories([]);
-      return;
-    }
-
-    const effectiveOwnerId =
-      ownerId || (isCategoryResource ? categoryOwnerId : selectedId ? categoryOwnerId : session?.userId);
-
-    try {
-      const response = await api.get("/category", {
-        params: {
-          page: 1,
-          items: 1000,
-          creator:
-            canChooseCategoryOwner && effectiveOwnerId ? effectiveOwnerId : undefined,
-        },
-      });
-      if (response.status >= 400) throw toApiError(response, "Failed to load categories");
-      const items =
-        response.data?.data?.categories || response.data?.categories || [];
-      setAllCategories(Array.isArray(items) ? items : []);
     } catch (err) {
       setError(err.message);
     }
@@ -230,11 +173,10 @@ export default function ResourcePage({ api, definition, session, scope }) {
         "";
       setCategoryOwnerId(ownerId);
       if (hasCategoryField) {
-        await listCategories(ownerId);
+        setCategoryOwnerId(ownerId);
       }
 
       setForm(next);
-      setComboQueries({});
       setSelectedId(id);
     } catch (err) {
       setError(err.message);
@@ -280,11 +222,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
       ...(isCategoryResource ? { creator: resetOwnerId } : {}),
     });
     setCategoryOwnerId(resetOwnerId);
-    setComboQueries({});
     setUploadFile(null);
-    if (hasCategoryField) {
-      await listCategories(resetOwnerId);
-    }
     if (isRoleResource) {
       setSelectedCapabilityIds([]);
       setInitialCapabilityIds([]);
@@ -335,17 +273,13 @@ export default function ResourcePage({ api, definition, session, scope }) {
           ...newRecord,
           ...(isCategoryResource ? { creator: resetOwnerId } : {}),
         });
-        setComboQueries({});
         setCategoryOwnerId(resetOwnerId);
-        if (hasCategoryField) {
-          await listCategories(resetOwnerId);
-        }
         setSelectedCapabilityIds([]);
         setInitialCapabilityIds([]);
         setSelectedRoleProtected(false);
         setShowAllRoleCapabilities(false);
       }
-      await listRows();
+      await listRows(selectedId ? page : 1);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -353,19 +287,20 @@ export default function ResourcePage({ api, definition, session, scope }) {
     }
   };
 
-  const onDelete = async () => {
+  const executeDelete = async (reason) => {
     if (!selectedId) return;
     if (definition.deletable === false) return;
     if (isRoleResource && selectedRoleProtected) {
       setError("Protected roles cannot be deleted.");
       return;
     }
-    if (!window.confirm(`Delete ${definition.title} item ${selectedId}?`)) return;
     setSaving(true);
     setError("");
     setSuccess("");
     try {
-      const response = await api.delete(`${definition.path}/${selectedId}`);
+      const response = await api.delete(`${definition.path}/${selectedId}`, {
+        data: { reason },
+      });
       if (response.status >= 400) throw toApiError(response, `Failed to delete ${definition.title}`);
       setSuccess(`${definition.title} deleted`);
       setSelectedId(null);
@@ -375,10 +310,6 @@ export default function ResourcePage({ api, definition, session, scope }) {
         ...newRecord,
         ...(isCategoryResource ? { creator: resetOwnerId } : {}),
       });
-      setComboQueries({});
-      if (hasCategoryField) {
-        await listCategories(resetOwnerId);
-      }
       setSelectedCapabilityIds([]);
       setInitialCapabilityIds([]);
       setSelectedRoleProtected(false);
@@ -388,6 +319,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
       setError(err.message);
     } finally {
       setSaving(false);
+      setConfirmAction(null);
     }
   };
 
@@ -428,12 +360,12 @@ export default function ResourcePage({ api, definition, session, scope }) {
   };
 
   useEffect(() => {
+    setSortKey(definition.idField);
     const resetOwnerId = session?.userId || "";
     setForm({
       ...newRecord,
       ...(isCategoryResource ? { creator: resetOwnerId } : {}),
     });
-    setComboQueries({});
     setCategoryOwnerId(resetOwnerId);
     setUploadFile(null);
     if (!isRoleResource) {
@@ -476,51 +408,95 @@ export default function ResourcePage({ api, definition, session, scope }) {
   }, [definition.path, scope?.activeWorkgroupId, selectedId, scopedOrganizationId]);
 
   useEffect(() => {
-    listRows();
-  }, [scope?.activeWorkgroupId, categoryOwnerId]);
+    listRows(1);
+  }, [scope?.activeWorkgroupId, scope?.activeOrganizationId, categoryOwnerId, itemsPerPage]);
 
   useEffect(() => {
     listCapabilities();
-  }, [definition.path]);
+  }, [definition.path, capabilityFilter]);
 
-  useEffect(() => {
-    listOrganizations();
-  }, [definition.path]);
-
-  useEffect(() => {
-    loadUsers();
-  }, [canChooseCategoryOwner, hasUserCombobox]);
-
-  useEffect(() => {
-    if (hasCategoryField && !selectedId) {
-      listCategories(session?.userId || "");
-    } else if (isCategoryResource) {
-      listCategories(categoryOwnerId || session?.userId || "");
-    }
-  }, [definition.path, session?.userId]);
-
-  useEffect(() => {
-    const nextQueries = {};
-    for (const [key, , type] of fields) {
-      if (type === "organization-combobox") {
-        nextQueries[key] = getOrganizationLabel(form[key] || "");
-      }
-      if (type === "user-combobox") {
-        nextQueries[key] = getUserLabel(form[key] || "");
-      }
-    }
-    setComboQueries((prev) => {
-      const prevKeys = Object.keys(prev);
-      const nextKeys = Object.keys(nextQueries);
-      if (
-        prevKeys.length === nextKeys.length &&
-        nextKeys.every((key) => prev[key] === nextQueries[key])
-      ) {
-        return prev;
-      }
-      return nextQueries;
+  const sortedRows = useMemo(() => {
+    const key = sortKey || idField;
+    const next = [...rows];
+    next.sort((a, b) => {
+      const left = String(a?.[key] ?? "").toLowerCase();
+      const right = String(b?.[key] ?? "").toLowerCase();
+      if (left === right) return 0;
+      return (left > right ? 1 : -1) * (sortDirection === "asc" ? 1 : -1);
     });
-  }, [fields, form, allOrganizations, allUsers]);
+    return next;
+  }, [rows, sortDirection, sortKey]);
+
+  function toggleSort(key) {
+    if (sortKey === key) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  }
+
+  function pickerConfig(type) {
+    const orgId = scope?.activeOrganizationId || form.organizationId || session?.organizationId || "";
+    const workgroupId = scope?.activeWorkgroupId || form.workgroupId || "";
+    const configs = {
+      "organization-combobox": {
+        path: "/organization",
+        listKey: "organizations",
+        placeholder: "Search organizations",
+      },
+      "user-combobox": {
+        path: "/person",
+        listKey: "users",
+        placeholder: "Search people",
+        params: orgId ? { organizationId: orgId } : {},
+      },
+      "workgroup-combobox": {
+        path: "/space",
+        listKey: "workgroups",
+        placeholder: "Search spaces",
+        params: orgId ? { organizationId: orgId } : {},
+      },
+      "category-combobox": {
+        path: "/category",
+        listKey: "categories",
+        placeholder: "Search categories",
+        params:
+          canChooseCategoryOwner && categoryOwnerId ? { creator: categoryOwnerId } : {},
+      },
+      "image-combobox": {
+        path: "/picture",
+        listKey: "images",
+        placeholder: "Search pictures",
+        params: workgroupId ? { workgroupId } : {},
+      },
+      "item-combobox": {
+        path: "/item",
+        listKey: "items",
+        placeholder: "Search items",
+        params: workgroupId ? { workgroupId } : {},
+      },
+      "list-combobox": {
+        path: "/list",
+        listKey: "lists",
+        placeholder: "Search lists",
+        params: workgroupId ? { workgroupId } : {},
+      },
+      "group-combobox": {
+        path: "/circle",
+        listKey: "groups",
+        placeholder: "Search circles",
+        params: workgroupId ? { workgroupId } : {},
+      },
+      "election-combobox": {
+        path: "/poll",
+        listKey: "elections",
+        placeholder: "Search polls",
+        params: workgroupId ? { workgroupId } : {},
+      },
+    };
+    return configs[type] || null;
+  }
 
   return (
     <div className="resource-grid">
@@ -537,19 +513,23 @@ export default function ResourcePage({ api, definition, session, scope }) {
               placeholder="Filter"
             />
             {isCategoryResource && canChooseCategoryOwner && (
-              <select
-                value={categoryOwnerId || ""}
-                onChange={(e) => setCategoryOwnerId(e.target.value)}
-              >
-                <option value="">(all category owners)</option>
-                {allUsers.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.fullName || user.alias || user.email || user.id}
-                  </option>
-                ))}
-              </select>
+              <div className="filter-picker">
+                <SearchPicker
+                  api={api}
+                  path="/person"
+                  listKey="users"
+                  value={categoryOwnerId}
+                  onChange={(value) => setCategoryOwnerId(value)}
+                  params={
+                    scope?.activeOrganizationId || session?.organizationId
+                      ? { organizationId: scope?.activeOrganizationId || session?.organizationId }
+                      : {}
+                  }
+                  placeholder="Category owner"
+                />
+              </div>
             )}
-            <button className="btn" onClick={listRows}>Search</button>
+            <button className="btn" type="button" onClick={() => listRows(1)}>Search</button>
             {selectedId && (
               <button
                 className="btn btn-secondary"
@@ -560,19 +540,35 @@ export default function ResourcePage({ api, definition, session, scope }) {
             )}
           </div>
         </div>
+        <div className="scope-banner">
+          <strong>Scope</strong>
+          <span>Organization: {scope?.activeOrganizationId || session?.organizationId || "not selected"}</span>
+          <span>Space: {scope?.activeWorkgroupId || "not selected"}</span>
+          {scope?.globalModeConfirmed ? <span className="danger-text">Global mode confirmed</span> : null}
+        </div>
 
         {loading ? <Loading /> : (
           <div className="data-table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  {fields.slice(0, 3).map(([key, label]) => <th key={key}>{label}</th>)}
+                  <th>
+                    <button className="table-sort" type="button" onClick={() => toggleSort(idField)}>
+                      ID{sortKey === idField ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
+                    </button>
+                  </th>
+                  {fields.slice(0, 3).map(([key, label]) => (
+                    <th key={key}>
+                      <button className="table-sort" type="button" onClick={() => toggleSort(key)}>
+                        {label}{sortKey === key ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
+                      </button>
+                    </th>
+                  ))}
                   {isRoleResource && <th>Status</th>}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {sortedRows.map((row) => (
                   <tr
                     key={row[idField]}
                     className={selectedId === row[idField] ? "row-selected" : ""}
@@ -593,6 +589,16 @@ export default function ResourcePage({ api, definition, session, scope }) {
                 ))}
               </tbody>
             </table>
+            <PaginationControls
+              page={page}
+              itemsPerPage={itemsPerPage}
+              total={total}
+              onPageChange={(nextPage) => listRows(nextPage)}
+              onItemsPerPageChange={(nextItems) => {
+                setItemsPerPage(nextItems);
+                setPage(1);
+              }}
+            />
           </div>
         )}
       </div>
@@ -618,6 +624,21 @@ export default function ResourcePage({ api, definition, session, scope }) {
               <span>
                 Category choices for owner: <strong>{categoryOwnerId || session?.userId || "current person"}</strong>
               </span>
+              {canChooseCategoryOwner ? (
+                <SearchPicker
+                  api={api}
+                  path="/person"
+                  listKey="users"
+                  value={categoryOwnerId}
+                  onChange={(value) => setCategoryOwnerId(value || session?.userId || "")}
+                  params={
+                    scope?.activeOrganizationId || session?.organizationId
+                      ? { organizationId: scope?.activeOrganizationId || session?.organizationId }
+                      : {}
+                  }
+                  placeholder="Search category owner"
+                />
+              ) : null}
             </div>
           )}
 
@@ -626,84 +647,18 @@ export default function ResourcePage({ api, definition, session, scope }) {
               <span>{label}</span>
               {type === "textarea" ? (
                 <textarea value={form[key] ?? ""} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))} />
-              ) : key === "categoryId" ? (
-                <select
+              ) : pickerConfig(type) ? (
+                <SearchPicker
+                  api={api}
                   value={form[key] ?? ""}
-                  onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-                >
-                  <option value="">None</option>
-                  {allCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name || category.id}
-                    </option>
-                  ))}
-                </select>
-              ) : type === "organization-combobox" ? (
-                <>
-                  <input
-                    type="text"
-                    list={`${key}-options`}
-                    value={comboQueries[key] ?? ""}
-                    placeholder="Type organization name"
-                    onChange={(e) => {
-                      const query = e.target.value;
-                      const trimmed = query.trim();
-                      const byName = allOrganizations.find(
-                        (org) => (org.name || "").toLowerCase() === trimmed.toLowerCase()
-                      );
-                      const byId = allOrganizations.find((org) => org.id === trimmed);
-                      setComboQueries((prev) => ({ ...prev, [key]: query }));
-                      setForm((p) => ({
-                        ...p,
-                        [key]: byName?.id || byId?.id || "",
-                      }));
-                    }}
-                  />
-                  <datalist id={`${key}-options`}>
-                    {allOrganizations.map((organization) => (
-                      <option key={organization.id} value={organization.name || organization.id} />
-                    ))}
-                  </datalist>
-                  <small style={{ color: "var(--muted)" }}>
-                    {form[key] ? `Selected ID: ${form[key]}` : "Select an organization by name."}
-                  </small>
-                </>
-              ) : type === "user-combobox" ? (
-                <>
-                  <input
-                    type="text"
-                    list={`${key}-options`}
-                    value={comboQueries[key] ?? ""}
-                    placeholder="Type person name or email"
-                    onChange={(e) => {
-                      const query = e.target.value;
-                      const trimmed = query.trim();
-                      const byLabel = allUsers.find((user) => {
-                        const label =
-                          user.fullName || user.alias || user.email || user.id || "";
-                        return label.toLowerCase() === trimmed.toLowerCase();
-                      });
-                      const byId = allUsers.find((user) => user.id === trimmed);
-                      const nextUserId = byLabel?.id || byId?.id || "";
-                      setComboQueries((prev) => ({ ...prev, [key]: query }));
-                      setForm((p) => ({ ...p, [key]: nextUserId }));
-                      if (key === "creator" && isCategoryResource && canChooseCategoryOwner) {
-                        setCategoryOwnerId(nextUserId);
-                      }
-                    }}
-                  />
-                  <datalist id={`${key}-options`}>
-                    {allUsers.map((user) => (
-                      <option
-                        key={user.id}
-                        value={user.fullName || user.alias || user.email || user.id}
-                      />
-                    ))}
-                  </datalist>
-                  <small style={{ color: "var(--muted)" }}>
-                    {form[key] ? `Selected ID: ${form[key]}` : "Select a person by name, alias, or email."}
-                  </small>
-                </>
+                  onChange={(value) => {
+                    setForm((p) => ({ ...p, [key]: value }));
+                    if (key === "creator" && isCategoryResource && canChooseCategoryOwner) {
+                      setCategoryOwnerId(value);
+                    }
+                  }}
+                  {...pickerConfig(type)}
+                />
               ) : type === "checkbox" ? (
                 <input
                   type="checkbox"
@@ -770,6 +725,17 @@ export default function ResourcePage({ api, definition, session, scope }) {
                   </button>
                 </div>
               </div>
+              <form className="search-picker-row" onSubmit={(event) => {
+                event.preventDefault();
+                listCapabilities();
+              }}>
+                <input
+                  value={capabilityFilter}
+                  onChange={(event) => setCapabilityFilter(event.target.value)}
+                  placeholder="Search capabilities"
+                />
+                <button className="btn btn-secondary" type="submit">Search</button>
+              </form>
               <div className="capability-picker">
                 {visibleCapabilities.map((cap) => {
                   const capId = cap?.id;
@@ -812,13 +778,26 @@ export default function ResourcePage({ api, definition, session, scope }) {
             <button
               className="btn btn-danger"
               disabled={!selectedId || saving || (isRoleResource && selectedRoleProtected)}
-              onClick={onDelete}
+              onClick={() =>
+                setConfirmAction({
+                  title: `Delete ${singularizeTitle(definition.title)}`,
+                  tenant: tenantLabel,
+                  target: selectedId,
+                  impact: "The selected record will be deleted from production data.",
+                })
+              }
             >
               Delete
             </button>
           )}
         </div>
       </div>
+      <ConfirmActionModal
+        action={confirmAction}
+        busy={saving}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={executeDelete}
+      />
     </div>
   );
 }

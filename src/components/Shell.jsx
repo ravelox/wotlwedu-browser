@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
+import { SearchPicker } from "./AdminControls";
 
 const NAV_ITEMS = [
   ["Dashboard", "/dashboard"],
@@ -28,6 +29,10 @@ export default function Shell({
   api,
   appVersion,
   activeWorkgroupId,
+  activeOrganizationId,
+  globalModeConfirmed,
+  onChangeActiveOrganizationId,
+  onChangeGlobalModeConfirmed,
   onChangeActiveWorkgroupId,
 }) {
   const [workgroups, setWorkgroups] = useState([]);
@@ -42,8 +47,17 @@ export default function Shell({
     let cancelled = false;
     async function load() {
       if (!api || !session?.authToken) return;
+      if (session?.systemAdmin === true && !activeOrganizationId) {
+        setWorkgroups([]);
+        return;
+      }
       const response = await api.get("/space", {
-        params: { page: 1, items: 200, detail: undefined },
+        params: {
+          page: 1,
+          items: 50,
+          organizationId: activeOrganizationId || session?.organizationId || undefined,
+          detail: undefined,
+        },
       });
       const list =
         response.data?.data?.workgroups ||
@@ -55,7 +69,7 @@ export default function Shell({
     return () => {
       cancelled = true;
     };
-  }, [api, session?.authToken]);
+  }, [api, session?.authToken, session?.systemAdmin, session?.organizationId, activeOrganizationId]);
 
   return (
     <div className="shell">
@@ -88,9 +102,32 @@ export default function Shell({
               {session?.systemAdmin ? "System Admin" : session?.organizationAdmin ? "Organization Admin" : session?.workgroupAdmin ? "Space Admin" : "Person"}
               {session?.organizationId ? ` • ${session.organizationId}` : ""}
             </p>
-            <div style={{ marginTop: 6 }}>
-              <label style={{ fontSize: 12, color: "var(--muted)" }}>
-                Space Scope{" "}
+            <div className="scope-controls">
+              {session?.systemAdmin === true ? (
+                <label className="scope-control">
+                  <span>Organization</span>
+                  <SearchPicker
+                    api={api}
+                    path="/organization"
+                    listKey="organizations"
+                    value={activeOrganizationId || ""}
+                    onChange={onChangeActiveOrganizationId}
+                    placeholder="Search organizations"
+                  />
+                </label>
+              ) : null}
+              {session?.systemAdmin === true && !activeOrganizationId ? (
+                <label className="scope-control scope-check">
+                  <input
+                    type="checkbox"
+                    checked={globalModeConfirmed}
+                    onChange={(event) => onChangeGlobalModeConfirmed(event.target.checked)}
+                  />
+                  <span>Global mode</span>
+                </label>
+              ) : null}
+              <label className="scope-control">
+                <span>Space</span>
                 <select
                   value={activeWorkgroupId || ""}
                   onChange={(e) =>
@@ -98,7 +135,6 @@ export default function Shell({
                       e.target.value === "" ? null : e.target.value
                     )
                   }
-                  style={{ marginLeft: 8 }}
                 >
                   <option value="">(none)</option>
                   {workgroups.map((wg) => (
@@ -108,6 +144,11 @@ export default function Shell({
                   ))}
                 </select>
               </label>
+              <div className="breadcrumb-row">
+                <span>Org: {activeOrganizationId || session?.organizationId || "none"}</span>
+                <span>Space: {activeWorkgroupId || "none"}</span>
+                {globalModeConfirmed ? <span className="danger-text">Global confirmed</span> : null}
+              </div>
             </div>
           </div>
           <button className="btn btn-secondary" onClick={onLogout}>Logout</button>

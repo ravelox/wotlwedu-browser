@@ -3,6 +3,13 @@
 This project follows a lightweight changelog format inspired by "Keep a Changelog".
 
 ## Unreleased
+
+## 0.1.28 - 2026-05-15
+- Add tenant-aware organization and space scope controls, global-mode warnings, and visible scope breadcrumbs for system-admin/support workflows.
+- Add paginated generic resource tables with totals, next/previous navigation, page sizing, and sortable visible columns.
+- Replace eager admin lookup loads with server-backed searchable pickers for organizations, people, spaces, categories, pictures, lists, polls, votes, notifications, and Token Lab users.
+- Add scoped support loading, audit CSV export, paginated auth/public-poll feeds, recipient suppression, and confirmation/reason dialogs for session revocation and public-poll moderation.
+- Add operations dashboard cards for tenant scale, active sessions, mail failures, storage provider state, and database update metadata.
 - Add public-poll abuse review and moderation controls to Support, including lock, restore, and remove-public-access actions.
 - Automatically refresh expired access tokens with refresh-token rotation.
 - Add Profile controls to view/revoke active sessions and log out all devices.

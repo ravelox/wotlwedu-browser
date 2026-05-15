@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import { toApiError } from "../lib/api";
+import {
+  ConfirmActionModal,
+  PaginationControls,
+  SearchPicker,
+} from "../components/AdminControls";
 
 function formatAudit(audit) {
   if (!audit) return "Unknown activity";
@@ -12,8 +17,16 @@ function formatMethod(method) {
   return `${method.provider || "provider"}${method.email ? ` • ${method.email}` : ""}`;
 }
 
-export default function SupportPage({ api, session }) {
-  const [organizationId, setOrganizationId] = useState(session?.organizationId || "");
+export default function SupportPage({
+  api,
+  session,
+  initialOrganizationId = "",
+  globalModeConfirmed = false,
+}) {
+  const [organizationId, setOrganizationId] = useState(
+    initialOrganizationId || session?.organizationId || ""
+  );
+  const [globalConfirmed, setGlobalConfirmed] = useState(globalModeConfirmed);
   const [days, setDays] = useState(7);
   const [eventType, setEventType] = useState("");
   const [outcome, setOutcome] = useState("");
@@ -22,11 +35,15 @@ export default function SupportPage({ api, session }) {
   const [userId, setUserId] = useState("");
   const [overview, setOverview] = useState(null);
   const [audits, setAudits] = useState([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotal, setAuditTotal] = useState(0);
   const [publicOverview, setPublicOverview] = useState(null);
   const [publicAudits, setPublicAudits] = useState([]);
+  const [publicAuditPage, setPublicAuditPage] = useState(1);
+  const [publicAuditTotal, setPublicAuditTotal] = useState(0);
   const [publicPollId, setPublicPollId] = useState("");
   const [moderationReason, setModerationReason] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -36,24 +53,42 @@ export default function SupportPage({ api, session }) {
   });
   const [selectedAudits, setSelectedAudits] = useState([]);
   const [selectedSessions, setSelectedSessions] = useState([]);
+  const [confirmAction, setConfirmAction] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const canAccessSupport =
     session?.systemAdmin === true || session?.organizationAdmin === true;
 
-  const scopeParams = {
-    ...(session?.systemAdmin === true
-      ? organizationId.trim()
-        ? { organizationId: organizationId.trim() }
-        : {}
-      : session?.organizationId
-        ? { organizationId: session.organizationId }
-        : {}),
-  };
+  useEffect(() => {
+    if (initialOrganizationId) setOrganizationId(initialOrganizationId);
+  }, [initialOrganizationId]);
 
-  async function loadSupportData() {
+  useEffect(() => {
+    setGlobalConfirmed(globalModeConfirmed);
+  }, [globalModeConfirmed]);
+
+  const effectiveOrganizationId =
+    session?.systemAdmin === true ? organizationId.trim() : session?.organizationId || "";
+  const isGlobalScope = session?.systemAdmin === true && !effectiveOrganizationId;
+  const scopeParams = effectiveOrganizationId ? { organizationId: effectiveOrganizationId } : {};
+
+  function requireSafeScope() {
+    if (!canAccessSupport) return false;
+    if (isGlobalScope && !globalConfirmed) {
+      setError("Choose an organization or explicitly confirm global support mode before loading data.");
+      return false;
+    }
+    if (isGlobalScope && Number(days) > 7) {
+      setError("Global support investigations are limited to 7 days. Narrow the window or choose a tenant.");
+      return false;
+    }
+    return true;
+  }
+
+  async function loadSupportData(nextAuditPage = auditPage, nextPublicAuditPage = publicAuditPage) {
     if (!canAccessSupport) return;
+    if (!requireSafeScope()) return;
     setLoading(true);
     setError("");
     try {
@@ -68,7 +103,9 @@ export default function SupportPage({ api, session }) {
       };
       const [overviewResponse, auditResponse] = await Promise.all([
         api.get("/support/auth/overview", { params }),
-        api.get("/support/auth/audit", { params: { ...params, items: 25, page: 1 } }),
+        api.get("/support/auth/audit", {
+          params: { ...params, items: 25, page: nextAuditPage },
+        }),
       ]);
       if (overviewResponse.status >= 400) {
         throw toApiError(overviewResponse, "Failed to load support overview");
@@ -78,6 +115,8 @@ export default function SupportPage({ api, session }) {
       }
       setOverview(overviewResponse.data?.data || null);
       setAudits(auditResponse.data?.data?.audits || []);
+      setAuditPage(auditResponse.data?.data?.page || nextAuditPage);
+      setAuditTotal(auditResponse.data?.data?.total || 0);
       const publicParams = {
         ...scopeParams,
         days,
@@ -86,7 +125,7 @@ export default function SupportPage({ api, session }) {
       const [publicOverviewResponse, publicAuditResponse] = await Promise.all([
         api.get("/support/publicpoll/overview", { params: publicParams }),
         api.get("/support/publicpoll/audit", {
-          params: { ...publicParams, items: 25, page: 1 },
+          params: { ...publicParams, items: 25, page: nextPublicAuditPage },
         }),
       ]);
       if (publicOverviewResponse.status >= 400) {
@@ -97,6 +136,8 @@ export default function SupportPage({ api, session }) {
       }
       setPublicOverview(publicOverviewResponse.data?.data || null);
       setPublicAudits(publicAuditResponse.data?.data?.audits || []);
+      setPublicAuditPage(publicAuditResponse.data?.data?.page || nextPublicAuditPage);
+      setPublicAuditTotal(publicAuditResponse.data?.data?.total || 0);
     } catch (err) {
       setError(err.message || "Failed to load support data");
     } finally {
@@ -105,8 +146,8 @@ export default function SupportPage({ api, session }) {
   }
 
   useEffect(() => {
-    loadSupportData().catch(() => {});
-  }, [session?.organizationId, session?.systemAdmin, days, eventType, outcome, provider, email, userId, organizationId, publicPollId]);
+    if (session?.organizationAdmin === true) loadSupportData(1, 1).catch(() => {});
+  }, [session?.organizationId, session?.organizationAdmin]);
 
   async function searchUsers(event) {
     event.preventDefault();
@@ -114,11 +155,17 @@ export default function SupportPage({ api, session }) {
       setSearchResults([]);
       return;
     }
+    if (!requireSafeScope()) return;
     setError("");
     setSuccess("");
     try {
       const response = await api.get("/person", {
-        params: { page: 1, items: 25, filter: searchQuery.trim() },
+        params: {
+          ...scopeParams,
+          page: 1,
+          items: 25,
+          filter: searchQuery.trim(),
+        },
       });
       if (response.status >= 400) {
         throw toApiError(response, "Failed to search people");
@@ -201,14 +248,14 @@ export default function SupportPage({ api, session }) {
     }
   }
 
-  async function moderatePublicPoll(electionId, action) {
+  async function moderatePublicPoll(electionId, action, reasonOverride = "") {
     if (!electionId) return;
     setError("");
     setSuccess("");
     try {
       const response = await api.post(`/support/publicpoll/${electionId}/moderation`, {
         action,
-        reason: moderationReason || "support console action",
+        reason: reasonOverride || moderationReason || "support console action",
       });
       if (response.status >= 400) {
         throw toApiError(response, "Failed to moderate public poll");
@@ -218,6 +265,60 @@ export default function SupportPage({ api, session }) {
     } catch (err) {
       setError(err.message || "Failed to moderate public poll");
     }
+  }
+
+  async function suppressRecipient(emailToSuppress, electionId, reasonOverride = "") {
+    if (!emailToSuppress) return;
+    setError("");
+    setSuccess("");
+    try {
+      const response = await api.post("/support/publicpoll/suppression", {
+        email: emailToSuppress,
+        electionId,
+        reason: reasonOverride || moderationReason || "support moderation",
+      });
+      if (response.status >= 400) {
+        throw toApiError(response, "Failed to suppress recipient");
+      }
+      setSuccess("Recipient suppressed for public-poll invites.");
+      await loadSupportData();
+    } catch (err) {
+      setError(err.message || "Failed to suppress recipient");
+    }
+  }
+
+  async function executeConfirmed(reason) {
+    const action = confirmAction;
+    if (!action) return;
+    setConfirmAction(null);
+    if (action.kind === "moderate") {
+      await moderatePublicPoll(action.electionId, action.action, reason);
+    } else if (action.kind === "suppress-recipient") {
+      await suppressRecipient(action.email, action.electionId, reason);
+    } else if (action.kind === "revoke-session") {
+      await revokeUserSession(action.sessionId);
+    } else if (action.kind === "revoke-all-sessions") {
+      await revokeAllUserSessions();
+    }
+  }
+
+  function exportCsv(filename, rows) {
+    const headers = ["id", "createdAt", "eventType", "outcome", "organizationId", "email", "message"];
+    const csvRows = [
+      headers.join(","),
+      ...rows.map((row) =>
+        headers
+          .map((key) => JSON.stringify(String(row?.[key] ?? "")))
+          .join(",")
+      ),
+    ];
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   if (!canAccessSupport) {
@@ -242,8 +343,28 @@ export default function SupportPage({ api, session }) {
         <div className="form-grid">
           {session?.systemAdmin === true && (
             <label className="field">
-              <span>Organization ID</span>
-              <input value={organizationId} onChange={(e) => setOrganizationId(e.target.value)} />
+              <span>Organization Scope</span>
+              <SearchPicker
+                api={api}
+                path="/organization"
+                listKey="organizations"
+                value={organizationId}
+                onChange={(value) => {
+                  setOrganizationId(value);
+                  setGlobalConfirmed(false);
+                }}
+                placeholder="Search organizations"
+              />
+            </label>
+          )}
+          {session?.systemAdmin === true && !organizationId.trim() && (
+            <label className="field checkbox-field">
+              <input
+                type="checkbox"
+                checked={globalConfirmed}
+                onChange={(event) => setGlobalConfirmed(event.target.checked)}
+              />
+              <span>Confirm global mode with a 7-day maximum window</span>
             </label>
           )}
           <label className="field">
@@ -253,7 +374,7 @@ export default function SupportPage({ api, session }) {
               min={1}
               max={30}
               value={days}
-              onChange={(e) => setDays(Number(e.target.value) || 7)}
+              onChange={(e) => setDays(Math.min(Number(e.target.value) || 7, isGlobalScope ? 7 : 30))}
             />
           </label>
           <label className="field">
@@ -274,8 +395,43 @@ export default function SupportPage({ api, session }) {
           </label>
           <label className="field">
             <span>Person ID</span>
-            <input value={userId} onChange={(e) => setUserId(e.target.value)} />
+            <SearchPicker
+              api={api}
+              path="/person"
+              listKey="users"
+              value={userId}
+              onChange={setUserId}
+              params={scopeParams}
+              placeholder="Search person"
+            />
           </label>
+        </div>
+        <div className="actions">
+          <button className="btn" type="button" onClick={() => loadSupportData(1, 1)}>
+            Load Scoped Data
+          </button>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            disabled={!audits.length}
+            onClick={() => exportCsv("wotlwedu-auth-audit.csv", audits)}
+          >
+            Export Auth CSV
+          </button>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            disabled={!publicAudits.length}
+            onClick={() => exportCsv("wotlwedu-public-poll-audit.csv", publicAudits)}
+          >
+            Export Public CSV
+          </button>
+        </div>
+        <div className="scope-banner">
+          <strong>Scope</strong>
+          <span>Organization: {effectiveOrganizationId || "global"}</span>
+          <span>Window: {days} day{Number(days) === 1 ? "" : "s"}</span>
+          {isGlobalScope ? <span className="danger-text">Global mode</span> : null}
         </div>
       </section>
 
@@ -430,25 +586,66 @@ export default function SupportPage({ api, session }) {
                   <div className="actions">
                     <button
                       className="btn btn-danger"
-                      onClick={() => moderatePublicPoll(audit.electionId, "lock")}
+                      onClick={() => setConfirmAction({
+                        kind: "moderate",
+                        action: "lock",
+                        electionId: audit.electionId,
+                        title: "Lock public poll",
+                        tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                        target: audit.electionId,
+                        impact: "Public access remains visible but voting/invite activity is locked.",
+                      })}
                       type="button"
                     >
                       Lock
                     </button>
                     <button
                       className="btn btn-secondary"
-                      onClick={() => moderatePublicPoll(audit.electionId, "restore")}
+                      onClick={() => setConfirmAction({
+                        kind: "moderate",
+                        action: "restore",
+                        electionId: audit.electionId,
+                        title: "Restore public poll",
+                        tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                        target: audit.electionId,
+                        impact: "The public poll is returned to normal trust status.",
+                      })}
                       type="button"
                     >
                       Restore
                     </button>
                     <button
                       className="btn btn-secondary"
-                      onClick={() => moderatePublicPoll(audit.electionId, "remove_public_access")}
+                      onClick={() => setConfirmAction({
+                        kind: "moderate",
+                        action: "remove_public_access",
+                        electionId: audit.electionId,
+                        title: "Remove public access",
+                        tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                        target: audit.electionId,
+                        impact: "The public link is disabled and anonymous access is removed.",
+                      })}
                       type="button"
                     >
                       Remove Public Access
                     </button>
+                    {(audit.metadata?.email || audit.metadata?.recipientEmail) ? (
+                      <button
+                        className="btn btn-danger"
+                        onClick={() => setConfirmAction({
+                          kind: "suppress-recipient",
+                          email: audit.metadata?.email || audit.metadata?.recipientEmail,
+                          electionId: audit.electionId,
+                          title: "Suppress recipient",
+                          tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                          target: audit.metadata?.email || audit.metadata?.recipientEmail,
+                          impact: "Future public-poll invites to this email address will be blocked.",
+                        })}
+                        type="button"
+                      >
+                        Suppress Recipient
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </article>
@@ -457,6 +654,12 @@ export default function SupportPage({ api, session }) {
             <p style={{ color: "var(--muted)" }}>No public poll abuse events matched the current filter.</p>
           )}
         </div>
+        <PaginationControls
+          page={publicAuditPage}
+          itemsPerPage={25}
+          total={publicAuditTotal}
+          onPageChange={(nextPage) => loadSupportData(auditPage, nextPage)}
+        />
       </section>
 
       <section className="panel">
@@ -485,6 +688,12 @@ export default function SupportPage({ api, session }) {
             <p style={{ color: "var(--muted)" }}>No audit events matched the current filter.</p>
           )}
         </div>
+        <PaginationControls
+          page={auditPage}
+          itemsPerPage={25}
+          total={auditTotal}
+          onPageChange={(nextPage) => loadSupportData(nextPage, publicAuditPage)}
+        />
       </section>
 
       <section className="panel">
@@ -553,7 +762,17 @@ export default function SupportPage({ api, session }) {
                     <strong>Sessions</strong>
                     <p>Revoke active sessions for the selected person.</p>
                   </div>
-                  <button className="btn btn-danger" onClick={revokeAllUserSessions} type="button">
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => setConfirmAction({
+                      kind: "revoke-all-sessions",
+                      title: "Revoke all sessions",
+                      tenant: selectedUser.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                      target: selectedUser.id,
+                      impact: "The selected person is signed out everywhere.",
+                    })}
+                    type="button"
+                  >
                     Revoke All
                   </button>
                 </div>
@@ -575,7 +794,14 @@ export default function SupportPage({ api, session }) {
                     <div className="actions">
                       <button
                         className="btn btn-danger"
-                        onClick={() => revokeUserSession(row.id)}
+                        onClick={() => setConfirmAction({
+                          kind: "revoke-session",
+                          sessionId: row.id,
+                          title: "Revoke session",
+                          tenant: selectedUser.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                          target: row.id,
+                          impact: "The selected person is signed out from this session.",
+                        })}
                         type="button"
                       >
                         Revoke
@@ -604,6 +830,11 @@ export default function SupportPage({ api, session }) {
           </div>
         )}
       </section>
+      <ConfirmActionModal
+        action={confirmAction}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={executeConfirmed}
+      />
     </div>
   );
 }

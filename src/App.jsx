@@ -15,7 +15,9 @@ import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope
 
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.24";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.28";
+const ACTIVE_ORGANIZATION_KEY = "wotlwedu_browser_active_organization";
+const GLOBAL_MODE_KEY = "wotlwedu_browser_global_mode_confirmed";
 
 function RequireAuth({ session, children }) {
   const location = useLocation();
@@ -34,6 +36,12 @@ export default function App() {
   const hasApiOverride = localStorage.getItem("wotlwedu_browser_api") !== null;
   const [activeWorkgroupId, setActiveWorkgroupIdState] = useState(
     getActiveWorkgroupId()
+  );
+  const [activeOrganizationId, setActiveOrganizationIdState] = useState(
+    localStorage.getItem(ACTIVE_ORGANIZATION_KEY) || getSession()?.organizationId || ""
+  );
+  const [globalModeConfirmed, setGlobalModeConfirmedState] = useState(
+    localStorage.getItem(GLOBAL_MODE_KEY) === "true"
   );
 
   const api = useMemo(() => {
@@ -79,6 +87,10 @@ export default function App() {
     setSessionState(null);
     setActiveWorkgroupId(null);
     setActiveWorkgroupIdState(null);
+    localStorage.removeItem(ACTIVE_ORGANIZATION_KEY);
+    localStorage.removeItem(GLOBAL_MODE_KEY);
+    setActiveOrganizationIdState("");
+    setGlobalModeConfirmedState(false);
     navigate("/login", { replace: true });
   };
 
@@ -119,7 +131,7 @@ export default function App() {
         api={api}
         definition={def}
         session={session}
-        scope={{ activeWorkgroupId }}
+        scope={{ activeWorkgroupId, activeOrganizationId, globalModeConfirmed }}
       />
     );
   };
@@ -143,6 +155,23 @@ export default function App() {
               api={api}
               appVersion={APP_VERSION}
               activeWorkgroupId={activeWorkgroupId}
+              activeOrganizationId={activeOrganizationId}
+              globalModeConfirmed={globalModeConfirmed}
+              onChangeActiveOrganizationId={(id) => {
+                const next = id || "";
+                if (next) localStorage.setItem(ACTIVE_ORGANIZATION_KEY, next);
+                else localStorage.removeItem(ACTIVE_ORGANIZATION_KEY);
+                setActiveOrganizationIdState(next);
+                setGlobalModeConfirmedState(false);
+                localStorage.removeItem(GLOBAL_MODE_KEY);
+                setActiveWorkgroupId(null);
+                setActiveWorkgroupIdState(null);
+              }}
+              onChangeGlobalModeConfirmed={(confirmed) => {
+                setGlobalModeConfirmedState(confirmed);
+                if (confirmed) localStorage.setItem(GLOBAL_MODE_KEY, "true");
+                else localStorage.removeItem(GLOBAL_MODE_KEY);
+              }}
               onChangeActiveWorkgroupId={(id) => {
                 setActiveWorkgroupId(id);
                 setActiveWorkgroupIdState(id);
@@ -173,9 +202,28 @@ export default function App() {
               </div>
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage api={api} />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <DashboardPage
+                      api={api}
+                      session={session}
+                      scope={{ activeOrganizationId, globalModeConfirmed }}
+                    />
+                  }
+                />
                 <Route path="/profile" element={<ProfilePage api={api} session={session} onLogout={onLogout} />} />
-                <Route path="/support" element={<SupportPage api={api} session={session} />} />
+                <Route
+                  path="/support"
+                  element={
+                    <SupportPage
+                      api={api}
+                      session={session}
+                      initialOrganizationId={activeOrganizationId}
+                      globalModeConfirmed={globalModeConfirmed}
+                    />
+                  }
+                />
                 <Route path="/organizations" element={ResourceRoute("organizations")} />
                 <Route path="/spaces" element={ResourceRoute("workgroups")} />
                 <Route path="/circles" element={ResourceRoute("groups")} />
@@ -193,7 +241,14 @@ export default function App() {
                 <Route path="/configuration" element={<ConfigPage api={api} session={session} />} />
                 <Route
                   path="/token-lab"
-                  element={<TokenLabPage api={api} session={session} onApplyToken={onApplyToken} />}
+                  element={
+                    <TokenLabPage
+                      api={api}
+                      session={session}
+                      scope={{ activeOrganizationId, globalModeConfirmed }}
+                      onApplyToken={onApplyToken}
+                    />
+                  }
                 />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
