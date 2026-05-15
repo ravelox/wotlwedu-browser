@@ -4,6 +4,11 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.32 - 2026-05-15
+- Simplify the browser console styling to flat black, white, and red themes with no gradients.
+- Convert common action-row buttons to icon-first controls.
+- Render Profile sessions in a table instead of cards.
+
 ## 0.1.31 - 2026-05-15
 - Complete Priority 7 support workflows with full-result audit CSV exports, operations dashboard cards, account recovery actions, and ownership transfer remediation from the Support console.
 

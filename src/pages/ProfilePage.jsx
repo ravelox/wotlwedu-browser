@@ -342,35 +342,48 @@ export default function ProfilePage({ api, session, onLogout }) {
             Logout All Devices
           </button>
         </div>
-        <div className="invite-stack">
+        <div className="data-table-scroll">
           {sessions.length ? (
-            sessions.map((row) => (
-              <article className="invite-card" key={row.id}>
-                <div className="invite-card-header">
-                  <div>
-                    <strong>{row.current ? "Current session" : "Session"}</strong>
-                    <p>{row.userAgent || "Unknown device"}</p>
-                  </div>
-                  <span className="status-chip">{row.revokedAt ? "Revoked" : "Active"}</span>
-                </div>
-                <div className="invite-meta">
-                  <span>Last used {row.lastUsedAt ? new Date(row.lastUsedAt).toLocaleString() : "Unknown"}</span>
-                  <span>Expires {row.expiresAt ? new Date(row.expiresAt).toLocaleString() : "Unknown"}</span>
-                </div>
-                {!row.revokedAt ? (
-                  <div className="actions">
-                    <button
-                      className="btn btn-danger"
-                      disabled={saving}
-                      onClick={() => revokeSession(row.id)}
-                      type="button"
-                    >
-                      {row.current ? "Logout This Device" : "Revoke"}
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            ))
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Session</th>
+                  <th>Status</th>
+                  <th>Device</th>
+                  <th>Last Used</th>
+                  <th>Expires</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.current ? "Current" : row.id}</td>
+                    <td>
+                      <span className="status-chip">{row.revokedAt ? "Revoked" : "Active"}</span>
+                    </td>
+                    <td title={row.userAgent || ""}>{row.userAgent || "Unknown device"}</td>
+                    <td>{row.lastUsedAt ? new Date(row.lastUsedAt).toLocaleString() : "Unknown"}</td>
+                    <td>{row.expiresAt ? new Date(row.expiresAt).toLocaleString() : "Unknown"}</td>
+                    <td>
+                      {!row.revokedAt ? (
+                        <button
+                          className="btn btn-danger"
+                          disabled={saving}
+                          onClick={() => revokeSession(row.id)}
+                          type="button"
+                          title={row.current ? "Logout this device" : "Revoke session"}
+                        >
+                          {row.current ? "Logout This Device" : "Revoke"}
+                        </button>
+                      ) : (
+                        <span className="muted-line">None</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <div className="loading">No sessions found.</div>
           )}
