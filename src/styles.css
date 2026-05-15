@@ -273,6 +273,37 @@ nav { display: grid; gap: 6px; }
 .data-table tbody tr { cursor: pointer; }
 .data-table tbody tr:hover { background: rgba(29, 92, 82, 0.06); }
 .row-selected { background: rgba(36, 76, 122, 0.09); }
+.audit-table-scroll {
+  max-height: none;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.audit-table {
+  min-width: 940px;
+}
+.audit-table tbody tr {
+  cursor: default;
+}
+.audit-table th:nth-child(1),
+.audit-table td:nth-child(1) {
+  width: 190px;
+}
+.audit-table th:nth-child(2),
+.audit-table td:nth-child(2) {
+  width: 180px;
+}
+.audit-table th:nth-child(3),
+.audit-table td:nth-child(3) {
+  width: 120px;
+}
+.audit-table th:nth-child(4),
+.audit-table td:nth-child(4),
+.audit-table th:nth-child(5),
+.audit-table td:nth-child(5) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .search-picker {
   display: grid;
   gap: 6px;

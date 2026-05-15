@@ -4,6 +4,9 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.29 - 2026-05-15
+- Render profile account and organization audit feeds as tabular operator views instead of cards.
+
 ## 0.1.28 - 2026-05-15
 - Add tenant-aware organization and space scope controls, global-mode warnings, and visible scope breadcrumbs for system-admin/support workflows.
 - Add paginated generic resource tables with totals, next/previous navigation, page sizing, and sortable visible columns.

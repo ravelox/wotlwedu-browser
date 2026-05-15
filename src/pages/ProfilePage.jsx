@@ -10,6 +10,50 @@ function inviteStatusLabel(status) {
   return "Unknown";
 }
 
+function formatDate(value) {
+  return value ? new Date(value).toLocaleString() : "Unknown";
+}
+
+function AuditTable({ audits, emptyMessage, formatAudit }) {
+  if (!audits.length) {
+    return <div className="loading">{emptyMessage}</div>;
+  }
+
+  return (
+    <div className="data-table-scroll audit-table-scroll">
+      <table className="data-table audit-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Event</th>
+            <th>Outcome</th>
+            <th>Message</th>
+            <th>Context</th>
+          </tr>
+        </thead>
+        <tbody>
+          {audits.map((audit) => (
+            <tr key={audit.id}>
+              <td>{formatDate(audit.createdAt)}</td>
+              <td>{audit.eventType || "Activity"}</td>
+              <td>
+                <span className={`status-chip status-${audit.outcome || "unknown"}`}>
+                  {audit.outcome || "unknown"}
+                </span>
+              </td>
+              <td>{formatAudit(audit)}</td>
+              <td>
+                {[audit.email, audit.provider, audit.organizationId].filter(Boolean).join(" / ") ||
+                  "Account"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function ProfilePage({ api, session, onLogout }) {
   const [organization, setOrganization] = useState(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -381,30 +425,11 @@ export default function ProfilePage({ api, session, onLogout }) {
 
       <section className="panel">
         <h2>Account Activity</h2>
-        <div className="invite-stack">
-          {userAudits.length ? (
-            userAudits.map((audit) => (
-              <article className="invite-card" key={audit.id}>
-                <div className="invite-card-header">
-                  <div>
-                    <strong>{audit.eventType}</strong>
-                    <p>{formatAudit(audit)}</p>
-                  </div>
-                  <span className={`status-chip status-${audit.outcome || "unknown"}`}>
-                    {audit.outcome || "unknown"}
-                  </span>
-                </div>
-                <div className="invite-meta">
-                  <span>
-                    {audit.createdAt ? new Date(audit.createdAt).toLocaleString() : "Unknown"}
-                  </span>
-                </div>
-              </article>
-            ))
-          ) : (
-            <div className="loading">No account activity recorded.</div>
-          )}
-        </div>
+        <AuditTable
+          audits={userAudits}
+          emptyMessage="No account activity recorded."
+          formatAudit={formatAudit}
+        />
       </section>
 
       <section className="panel">
@@ -547,30 +572,11 @@ export default function ProfilePage({ api, session, onLogout }) {
                 </button>
               ))}
             </div>
-            {organizationAudits.length ? (
-              <div className="invite-stack">
-                {organizationAudits.map((audit) => (
-                  <article className="invite-card" key={audit.id}>
-                    <div className="invite-card-header">
-                      <div>
-                        <strong>{audit.eventType}</strong>
-                        <p>{formatAudit(audit)}</p>
-                      </div>
-                      <span className={`status-chip status-${audit.outcome || "unknown"}`}>
-                        {audit.outcome || "unknown"}
-                      </span>
-                    </div>
-                    <div className="invite-meta">
-                      <span>
-                        {audit.createdAt ? new Date(audit.createdAt).toLocaleString() : "Unknown"}
-                      </span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="loading">No organization activity for this filter.</div>
-            )}
+            <AuditTable
+              audits={organizationAudits}
+              emptyMessage="No organization activity for this filter."
+              formatAudit={formatAudit}
+            />
           </>
         )}
       </section>
