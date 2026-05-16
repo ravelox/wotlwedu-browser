@@ -13,10 +13,11 @@ import { createApi } from "./lib/api";
 import { clearSession, getSession, setSession } from "./lib/session";
 import { RESOURCE_DEFS } from "./lib/resourceDefs";
 import { getActiveWorkgroupId, setActiveWorkgroupId } from "./lib/workgroupScope";
+import packageJson from "../package.json";
 
 const DEFAULT_API_BASE_URL =
   import.meta.env.VITE_WOTLWEDU_API_BASE_URL || "https://api.wotlwedu.com:9876";
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || "0.1.28";
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || packageJson.version;
 const ACTIVE_ORGANIZATION_KEY = "wotlwedu_browser_active_organization";
 const GLOBAL_MODE_KEY = "wotlwedu_browser_global_mode_confirmed";
 

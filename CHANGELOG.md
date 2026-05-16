@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.33 - 2026-05-16
+- Add CI for production dependency audit, frontend build, and container build.
+- Update production dependency locks to clear high-severity audit findings.
+
 ## 0.1.32 - 2026-05-15
 - Simplify the browser console styling to flat black, white, and red themes with no gradients.
 - Convert common action-row buttons to icon-first controls.
