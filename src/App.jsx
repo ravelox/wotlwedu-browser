@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Shell from "./components/Shell";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -20,6 +20,15 @@ const DEFAULT_API_BASE_URL =
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || packageJson.version;
 const ACTIVE_ORGANIZATION_KEY = "wotlwedu_browser_active_organization";
 const GLOBAL_MODE_KEY = "wotlwedu_browser_global_mode_confirmed";
+const GLOBAL_MODE_DURATION_MS = 15 * 60 * 1000;
+
+function getStoredGlobalModeExpiresAt() {
+  const stored = localStorage.getItem(GLOBAL_MODE_KEY);
+  if (!stored) return 0;
+  if (stored === "true") return Date.now() + GLOBAL_MODE_DURATION_MS;
+  const parsed = Number(stored);
+  return Number.isFinite(parsed) && parsed > Date.now() ? parsed : 0;
+}
 
 function RequireAuth({ session, children }) {
   const location = useLocation();
@@ -42,9 +51,8 @@ export default function App() {
   const [activeOrganizationId, setActiveOrganizationIdState] = useState(
     localStorage.getItem(ACTIVE_ORGANIZATION_KEY) || getSession()?.organizationId || ""
   );
-  const [globalModeConfirmed, setGlobalModeConfirmedState] = useState(
-    localStorage.getItem(GLOBAL_MODE_KEY) === "true"
-  );
+  const [globalModeExpiresAt, setGlobalModeExpiresAt] = useState(getStoredGlobalModeExpiresAt);
+  const globalModeConfirmed = Boolean(globalModeExpiresAt && globalModeExpiresAt > Date.now());
 
   const api = useMemo(() => {
     const onUnauthorized = () => {
@@ -55,6 +63,37 @@ export default function App() {
     };
     return createApi(baseUrl, onUnauthorized, setSessionState);
   }, [baseUrl, navigate, session?.authToken]);
+
+  useEffect(() => {
+    if (!globalModeExpiresAt) return undefined;
+    if (globalModeExpiresAt <= Date.now()) {
+      setGlobalModeExpiresAt(0);
+      localStorage.removeItem(GLOBAL_MODE_KEY);
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => {
+      setGlobalModeExpiresAt(0);
+      localStorage.removeItem(GLOBAL_MODE_KEY);
+    }, globalModeExpiresAt - Date.now());
+    return () => window.clearTimeout(timeout);
+  }, [globalModeExpiresAt]);
+
+  const setGlobalModeConfirmed = (confirmed) => {
+    if (!confirmed) {
+      setGlobalModeExpiresAt(0);
+      localStorage.removeItem(GLOBAL_MODE_KEY);
+      return;
+    }
+    const expiresAt = Date.now() + GLOBAL_MODE_DURATION_MS;
+    setGlobalModeExpiresAt(expiresAt);
+    localStorage.setItem(GLOBAL_MODE_KEY, String(expiresAt));
+  };
+
+  const resetGlobalModeAfterAction = () => {
+    if (!activeOrganizationId && globalModeConfirmed) {
+      setGlobalModeConfirmed(false);
+    }
+  };
 
   const onLogin = (payload) => {
     const loginData = payload?.data ? payload.data : payload;
@@ -92,7 +131,7 @@ export default function App() {
     localStorage.removeItem(ACTIVE_ORGANIZATION_KEY);
     localStorage.removeItem(GLOBAL_MODE_KEY);
     setActiveOrganizationIdState("");
-    setGlobalModeConfirmedState(false);
+    setGlobalModeExpiresAt(0);
     navigate("/login", { replace: true });
   };
 
@@ -134,6 +173,7 @@ export default function App() {
         definition={def}
         session={session}
         scope={{ activeWorkgroupId, activeOrganizationId, globalModeConfirmed }}
+        onGlobalModeUsed={resetGlobalModeAfterAction}
       />
     );
   };
@@ -159,21 +199,17 @@ export default function App() {
               activeWorkgroupId={activeWorkgroupId}
               activeOrganizationId={activeOrganizationId}
               globalModeConfirmed={globalModeConfirmed}
+              globalModeExpiresAt={globalModeExpiresAt}
               onChangeActiveOrganizationId={(id) => {
                 const next = id || "";
                 if (next) localStorage.setItem(ACTIVE_ORGANIZATION_KEY, next);
                 else localStorage.removeItem(ACTIVE_ORGANIZATION_KEY);
                 setActiveOrganizationIdState(next);
-                setGlobalModeConfirmedState(false);
-                localStorage.removeItem(GLOBAL_MODE_KEY);
+                setGlobalModeConfirmed(false);
                 setActiveWorkgroupId(null);
                 setActiveWorkgroupIdState(null);
               }}
-              onChangeGlobalModeConfirmed={(confirmed) => {
-                setGlobalModeConfirmedState(confirmed);
-                if (confirmed) localStorage.setItem(GLOBAL_MODE_KEY, "true");
-                else localStorage.removeItem(GLOBAL_MODE_KEY);
-              }}
+              onChangeGlobalModeConfirmed={setGlobalModeConfirmed}
               onChangeActiveWorkgroupId={(id) => {
                 setActiveWorkgroupId(id);
                 setActiveWorkgroupIdState(id);
@@ -224,6 +260,9 @@ export default function App() {
                       session={session}
                       initialOrganizationId={activeOrganizationId}
                       globalModeConfirmed={globalModeConfirmed}
+                      globalModeExpiresAt={globalModeExpiresAt}
+                      onChangeGlobalModeConfirmed={setGlobalModeConfirmed}
+                      onGlobalModeUsed={resetGlobalModeAfterAction}
                     />
                   }
                 />
@@ -248,6 +287,7 @@ export default function App() {
                       api={api}
                       session={session}
                       scope={{ activeWorkgroupId, activeOrganizationId, globalModeConfirmed }}
+                      onGlobalModeUsed={resetGlobalModeAfterAction}
                     />
                   }
                 />
@@ -260,6 +300,7 @@ export default function App() {
                       session={session}
                       scope={{ activeOrganizationId, globalModeConfirmed }}
                       onApplyToken={onApplyToken}
+                      onGlobalModeUsed={resetGlobalModeAfterAction}
                     />
                   }
                 />

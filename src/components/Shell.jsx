@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
 import { SearchPicker } from "./AdminControls";
+import ScopeBadge from "./ScopeBadge";
 
 const NAV_ITEMS = [
   ["Dashboard", "/dashboard"],
@@ -31,6 +32,7 @@ export default function Shell({
   activeWorkgroupId,
   activeOrganizationId,
   globalModeConfirmed,
+  globalModeExpiresAt,
   onChangeActiveOrganizationId,
   onChangeGlobalModeConfirmed,
   onChangeActiveWorkgroupId,
@@ -43,6 +45,7 @@ export default function Shell({
     ...(session?.systemAdmin ? [["Configuration", "/configuration"]] : []),
     ...(session?.systemAdmin ? [["Token Lab", "/token-lab"]] : []),
   ];
+  const effectiveOrganizationId = activeOrganizationId || session?.organizationId || "";
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +106,12 @@ export default function Shell({
               {session?.systemAdmin ? "System Admin" : session?.organizationAdmin ? "Organization Admin" : session?.workgroupAdmin ? "Space Admin" : "Person"}
               {session?.organizationId ? ` • ${session.organizationId}` : ""}
             </p>
+            <ScopeBadge
+              activeOrganizationId={effectiveOrganizationId}
+              activeWorkgroupId={activeWorkgroupId}
+              globalModeConfirmed={session?.systemAdmin === true && !effectiveOrganizationId && globalModeConfirmed}
+              globalModeExpiresAt={globalModeExpiresAt}
+            />
             <div className="scope-controls">
               {session?.systemAdmin === true ? (
                 <label className="scope-control">
@@ -124,7 +133,7 @@ export default function Shell({
                     checked={globalModeConfirmed}
                     onChange={(event) => onChangeGlobalModeConfirmed(event.target.checked)}
                   />
-                  <span>Global mode</span>
+                  <span>Enable global writes for 15 minutes</span>
                 </label>
               ) : null}
               <label className="scope-control">
@@ -146,9 +155,11 @@ export default function Shell({
                 </select>
               </label>
               <div className="breadcrumb-row">
-                <span>Org: {activeOrganizationId || session?.organizationId || "none"}</span>
+                <span>Org: {effectiveOrganizationId || "none"}</span>
                 <span>Space: {activeWorkgroupId || "none"}</span>
-                {globalModeConfirmed ? <span className="danger-text">Global confirmed</span> : null}
+                {session?.systemAdmin === true && !effectiveOrganizationId && globalModeConfirmed ? (
+                  <span className="danger-text">Global writes expire automatically</span>
+                ) : null}
               </div>
             </div>
           </div>

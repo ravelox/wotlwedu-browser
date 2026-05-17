@@ -8,6 +8,7 @@ import {
   PaginationControls,
   SearchPicker,
 } from "../components/AdminControls";
+import ScopeBadge from "../components/ScopeBadge";
 
 function coerceValue(type, value) {
   if (type === "checkbox") return Boolean(value);
@@ -22,7 +23,7 @@ function singularizeTitle(title) {
   return title;
 }
 
-export default function ResourcePage({ api, definition, session, scope }) {
+export default function ResourcePage({ api, definition, session, scope, onGlobalModeUsed }) {
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
@@ -303,6 +304,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
       });
       if (response.status >= 400) throw toApiError(response, `Failed to delete ${definition.title}`);
       setSuccess(`${definition.title} deleted`);
+      if (!scope?.activeOrganizationId && scope?.globalModeConfirmed) {
+        onGlobalModeUsed?.();
+      }
       setSelectedId(null);
       const resetOwnerId = session?.userId || "";
       setCategoryOwnerId(resetOwnerId);
@@ -551,9 +555,14 @@ export default function ResourcePage({ api, definition, session, scope }) {
         </div>
         <div className="scope-banner">
           <strong>Scope</strong>
+          <ScopeBadge
+            activeOrganizationId={scope?.activeOrganizationId || session?.organizationId || ""}
+            activeWorkgroupId={scope?.activeWorkgroupId}
+            globalModeConfirmed={scope?.globalModeConfirmed}
+          />
           <span>Organization: {scope?.activeOrganizationId || session?.organizationId || "not selected"}</span>
           <span>Space: {scope?.activeWorkgroupId || "not selected"}</span>
-          {scope?.globalModeConfirmed ? <span className="danger-text">Global mode confirmed</span> : null}
+          {scope?.globalModeConfirmed ? <span className="danger-text">Global write confirmation resets after destructive actions</span> : null}
         </div>
 
         {loading ? <Loading /> : (

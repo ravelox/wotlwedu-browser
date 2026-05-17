@@ -2,8 +2,9 @@ import { useState } from "react";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import { toApiError } from "../lib/api";
 import { ConfirmActionModal, SearchPicker } from "../components/AdminControls";
+import ScopeBadge from "../components/ScopeBadge";
 
-export default function TokenLabPage({ api, session, scope, onApplyToken }) {
+export default function TokenLabPage({ api, session, scope, onApplyToken, onGlobalModeUsed }) {
   const [targetUserId, setTargetUserId] = useState(session?.userId || "");
   const [expiresInMinutes, setExpiresInMinutes] = useState(60);
   const [result, setResult] = useState(null);
@@ -38,6 +39,9 @@ export default function TokenLabPage({ api, session, scope, onApplyToken }) {
       const data = response.data?.data || response.data || {};
       setResult(data);
       setSuccess(`Generated token for ${data.userId} (expires ${data.expiresAt})`);
+      if (!scope?.activeOrganizationId && scope?.globalModeConfirmed) {
+        onGlobalModeUsed?.();
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -103,6 +107,18 @@ export default function TokenLabPage({ api, session, scope, onApplyToken }) {
       </p>
       <ErrorBanner error={error} />
       <SuccessBanner message={success} />
+      <div className="scope-banner scope-banner-strong">
+        <strong>Scope</strong>
+        <ScopeBadge
+          activeOrganizationId={scope?.activeOrganizationId || ""}
+          globalModeConfirmed={scope?.globalModeConfirmed}
+        />
+        <span>
+          {scope?.activeOrganizationId
+            ? `Tokens are limited by organization ${scope.activeOrganizationId}.`
+            : "Global token generation can target any active person."}
+        </span>
+      </div>
 
       <div className="form-grid">
         <label className="field">

@@ -6,6 +6,7 @@ import {
   PaginationControls,
   SearchPicker,
 } from "../components/AdminControls";
+import ScopeBadge from "../components/ScopeBadge";
 
 function formatAudit(audit) {
   if (!audit) return "Unknown activity";
@@ -32,11 +33,13 @@ export default function SupportPage({
   session,
   initialOrganizationId = "",
   globalModeConfirmed = false,
+  globalModeExpiresAt = 0,
+  onChangeGlobalModeConfirmed,
+  onGlobalModeUsed,
 }) {
   const [organizationId, setOrganizationId] = useState(
     initialOrganizationId || session?.organizationId || ""
   );
-  const [globalConfirmed, setGlobalConfirmed] = useState(globalModeConfirmed);
   const [days, setDays] = useState(7);
   const [eventType, setEventType] = useState("");
   const [outcome, setOutcome] = useState("");
@@ -80,13 +83,10 @@ export default function SupportPage({
     if (initialOrganizationId) setOrganizationId(initialOrganizationId);
   }, [initialOrganizationId]);
 
-  useEffect(() => {
-    setGlobalConfirmed(globalModeConfirmed);
-  }, [globalModeConfirmed]);
-
   const effectiveOrganizationId =
     session?.systemAdmin === true ? organizationId.trim() : session?.organizationId || "";
   const isGlobalScope = session?.systemAdmin === true && !effectiveOrganizationId;
+  const globalConfirmed = Boolean(globalModeConfirmed);
   const scopeParams = effectiveOrganizationId ? { organizationId: effectiveOrganizationId } : {};
 
   function requireSafeScope() {
@@ -249,8 +249,10 @@ export default function SupportPage({
       }
       setSuccess("Session revoked.");
       await inspectUser(selectedUser);
+      return true;
     } catch (err) {
       setError(err.message || "Failed to revoke session");
+      return false;
     }
   }
 
@@ -267,8 +269,10 @@ export default function SupportPage({
       }
       setSuccess("All sessions revoked.");
       await inspectUser(selectedUser);
+      return true;
     } catch (err) {
       setError(err.message || "Failed to revoke sessions");
+      return false;
     }
   }
 
@@ -286,8 +290,10 @@ export default function SupportPage({
       }
       setSuccess("Public poll moderation action applied.");
       await loadSupportData();
+      return true;
     } catch (err) {
       setError(err.message || "Failed to moderate public poll");
+      return false;
     }
   }
 
@@ -306,8 +312,10 @@ export default function SupportPage({
       }
       setSuccess("Recipient suppressed for public-poll invites.");
       await loadSupportData();
+      return true;
     } catch (err) {
       setError(err.message || "Failed to suppress recipient");
+      return false;
     }
   }
 
@@ -334,8 +342,10 @@ export default function SupportPage({
       setSuccess("Recovery action completed.");
       await inspectUser(selectedUser);
       setRecoveryResult(recovery);
+      return true;
     } catch (err) {
       setError(err.message || "Failed to run recovery action");
+      return false;
     }
   }
 
@@ -378,8 +388,10 @@ export default function SupportPage({
       setSuccess("Ownership transferred.");
       await inspectUser(selectedUser);
       setTransferPreview(transfer);
+      return true;
     } catch (err) {
       setError(err.message || "Failed to transfer ownership");
+      return false;
     }
   }
 
@@ -387,18 +399,22 @@ export default function SupportPage({
     const action = confirmAction;
     if (!action) return;
     setConfirmAction(null);
+    let completed = false;
     if (action.kind === "moderate") {
-      await moderatePublicPoll(action.electionId, action.action, reason);
+      completed = await moderatePublicPoll(action.electionId, action.action, reason);
     } else if (action.kind === "suppress-recipient") {
-      await suppressRecipient(action.email, action.electionId, reason);
+      completed = await suppressRecipient(action.email, action.electionId, reason);
     } else if (action.kind === "revoke-session") {
-      await revokeUserSession(action.sessionId);
+      completed = await revokeUserSession(action.sessionId);
     } else if (action.kind === "revoke-all-sessions") {
-      await revokeAllUserSessions();
+      completed = await revokeAllUserSessions();
     } else if (action.kind === "recovery") {
-      await runRecoveryAction(action.action, reason);
+      completed = await runRecoveryAction(action.action, reason);
     } else if (action.kind === "ownership-transfer") {
-      await applyOwnershipTransfer(reason);
+      completed = await applyOwnershipTransfer(reason);
+    }
+    if (completed && isGlobalScope && globalConfirmed) {
+      onGlobalModeUsed?.();
     }
   }
 
@@ -497,7 +513,7 @@ export default function SupportPage({
                 value={organizationId}
                 onChange={(value) => {
                   setOrganizationId(value);
-                  setGlobalConfirmed(false);
+                  onChangeGlobalModeConfirmed?.(false);
                 }}
                 placeholder="Search organizations"
               />
@@ -508,9 +524,9 @@ export default function SupportPage({
               <input
                 type="checkbox"
                 checked={globalConfirmed}
-                onChange={(event) => setGlobalConfirmed(event.target.checked)}
+                onChange={(event) => onChangeGlobalModeConfirmed?.(event.target.checked)}
               />
-              <span>Confirm global mode with a 7-day maximum window</span>
+              <span>Enable global writes for 15 minutes with a 7-day maximum window</span>
             </label>
           )}
           <label className="field">
@@ -580,9 +596,18 @@ export default function SupportPage({
         </div>
         <div className="scope-banner">
           <strong>Scope</strong>
+          <ScopeBadge
+            activeOrganizationId={effectiveOrganizationId}
+            globalModeConfirmed={isGlobalScope && globalConfirmed}
+            globalModeExpiresAt={globalModeExpiresAt}
+          />
           <span>Organization: {effectiveOrganizationId || "global"}</span>
           <span>Window: {days} day{Number(days) === 1 ? "" : "s"}</span>
-          {isGlobalScope ? <span className="danger-text">Global mode</span> : null}
+          {isGlobalScope ? (
+            <span className="danger-text">
+              {globalConfirmed ? "Global write mode resets after confirmed support actions." : "Global scope is read-only until enabled."}
+            </span>
+          ) : null}
         </div>
       </section>
 

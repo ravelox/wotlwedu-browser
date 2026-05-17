@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { SearchPicker } from "../components/AdminControls";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
+import ScopeBadge from "../components/ScopeBadge";
 import { toApiError } from "../lib/api";
 
 function scopeLabel(scope) {
@@ -28,7 +29,7 @@ function countRows(counts = {}) {
   return Object.values(counts).reduce((total, count) => total + Number(count || 0), 0);
 }
 
-export default function BackupPage({ api, session, scope }) {
+export default function BackupPage({ api, session, scope, onGlobalModeUsed }) {
   const canUseSystemScope = session?.systemAdmin === true;
   const [backupScope, setBackupScope] = useState(canUseSystemScope ? "system" : "organization");
   const [organizationId, setOrganizationId] = useState(
@@ -55,6 +56,12 @@ export default function BackupPage({ api, session, scope }) {
     }),
     [selectedOrganizationId]
   );
+  const exportImpact =
+    backupScope === "system"
+      ? "Will export every tenant and space in the system."
+      : backupScope === "organization"
+        ? `Will export organization ${selectedOrganizationId || "not selected"}.`
+        : `Will export space ${selectedWorkgroupId || "not selected"}.`;
 
   async function exportBackup() {
     setBusy(true);
@@ -102,6 +109,9 @@ export default function BackupPage({ api, session, scope }) {
       });
       if (response.status >= 400) throw toApiError(response, "Failed to restore backup");
       setSuccess(`${scopeLabel(backup.scope)} backup restored.`);
+      if (backup.scope === "system" || (!scope?.activeOrganizationId && scope?.globalModeConfirmed)) {
+        onGlobalModeUsed?.();
+      }
       setLastBackup({
         ...backup,
         counts: Object.fromEntries(
@@ -124,6 +134,18 @@ export default function BackupPage({ api, session, scope }) {
         <h2>Backup and Restore</h2>
         <ErrorBanner error={error} />
         <SuccessBanner message={success} />
+        <div className="scope-banner scope-banner-strong">
+          <strong>Active Scope</strong>
+          <ScopeBadge
+            activeOrganizationId={scope?.activeOrganizationId || session?.organizationId || ""}
+            activeWorkgroupId={scope?.activeWorkgroupId}
+            globalModeConfirmed={scope?.globalModeConfirmed}
+          />
+          <span>{exportImpact}</span>
+          {backupScope === "system" ? (
+            <span className="danger-text">System backup and restore are cross-tenant operations.</span>
+          ) : null}
+        </div>
 
         <div className="backup-grid">
           <div>

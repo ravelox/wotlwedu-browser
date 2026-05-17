@@ -4,6 +4,11 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.35 - 2026-05-17
+- Add persistent admin scope badges for organization, space, global read-only, and global write-enabled modes.
+- Make global write confirmation short-lived and reset it after successful cross-tenant support, resource, backup, and token actions.
+- Add stronger scope and impact cues to support, backup, resource, and token-lab workflows.
+
 ## 0.1.34 - 2026-05-17
 - Restore visible labels for admin action buttons and remove generic generated action icons.
 - Add clearer labels and tooltips for repeated search, pagination, export, restore, refresh, reset, save, and delete controls.
