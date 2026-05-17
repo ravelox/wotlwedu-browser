@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.36 - 2026-05-17
+- Turn the dashboard into a task-oriented admin action center with direct links into support, notification, backup, people, and picture workflows.
+- Replace always-visible raw health JSON with summarized backend health and expandable diagnostics.
+
 ## 0.1.35 - 2026-05-17
 - Add persistent admin scope badges for organization, space, global read-only, and global write-enabled modes.
 - Make global write confirmation short-lived and reset it after successful cross-tenant support, resource, backup, and token actions.

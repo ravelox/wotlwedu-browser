@@ -1,6 +1,24 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Loading from "../components/Loading";
 import { ErrorBanner } from "../components/Feedback";
+
+function healthLabel(status, ping, error) {
+  if (error) return "Attention";
+  if (!status && !ping) return "Unknown";
+  return "Online";
+}
+
+function taskSeverity(value, warnAt = 1) {
+  return Number(value || 0) >= warnAt ? "attention" : "normal";
+}
+
+function formatTime(value) {
+  if (!value) return "Just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Just now";
+  return date.toLocaleString();
+}
 
 export default function DashboardPage({ api, session, scope }) {
   const [loading, setLoading] = useState(true);
@@ -47,54 +65,140 @@ export default function DashboardPage({ api, session, scope }) {
 
   if (loading) return <Loading text="Loading dashboard..." />;
 
+  const canUseSupport = session?.systemAdmin || session?.organizationAdmin;
+  const tasks = [
+    {
+      title: "Auth And Invite Failures",
+      value: ops?.auth?.recentFailures24h ?? 0,
+      detail: "Failures in the last 24 hours",
+      to: "/support",
+      action: "Review support feed",
+      severity: taskSeverity(ops?.auth?.recentFailures24h),
+      visible: canUseSupport,
+    },
+    {
+      title: "Mail Delivery Failures",
+      value: ops?.mail?.recentFailures24h ?? 0,
+      detail: `${ops?.mail?.provider || "configured"} provider`,
+      to: "/support",
+      action: "Inspect delivery",
+      severity: taskSeverity(ops?.mail?.recentFailures24h),
+      visible: canUseSupport,
+    },
+    {
+      title: "Active Sessions",
+      value: ops?.sessions?.active ?? 0,
+      detail: `${ops?.sessions?.revoked ?? 0} recently revoked`,
+      to: "/support",
+      action: "Investigate sessions",
+      severity: "normal",
+      visible: canUseSupport,
+    },
+    {
+      title: "Unread Notifications",
+      value: unread,
+      detail: "Current account notifications",
+      to: "/notifications",
+      action: "Open notifications",
+      severity: taskSeverity(unread),
+      visible: true,
+    },
+    {
+      title: "People And Spaces",
+      value: ops?.tenancy?.users ?? 0,
+      detail: `${ops?.tenancy?.workgroups ?? 0} spaces across ${ops?.tenancy?.organizations ?? 0} organizations`,
+      to: "/people",
+      action: "Open people",
+      severity: "normal",
+      visible: Boolean(ops?.tenancy),
+    },
+    {
+      title: "Backup Readiness",
+      value: ops?.updates?.count ?? 0,
+      detail: "Metadata-tracked database updates",
+      to: "/backup",
+      action: "Run scoped backup",
+      severity: "normal",
+      visible: canUseSupport,
+    },
+    {
+      title: "Storage Provider",
+      value: ops?.storage?.imageCount ?? ops?.storage?.provider ?? "local",
+      detail: `Media provider: ${ops?.storage?.provider || "local"}; S3 bucket ${
+        ops?.storage?.s3BucketConfigured ? "configured" : "not configured"
+      }`,
+      to: "/pictures",
+      action: "Open pictures",
+      severity: ops?.storage?.provider === "s3" && !ops?.storage?.s3BucketConfigured ? "attention" : "normal",
+      visible: Boolean(ops?.storage),
+    },
+  ].filter((task) => task.visible);
+  const backendHealth = healthLabel(status, ping, error);
+  const lastUpdated = formatTime(new Date().toISOString());
+
   return (
-    <div className="dashboard-grid">
+    <div className="dashboard-stack">
       <ErrorBanner error={error} />
-      <section className="panel">
-        <h2>Backend Health</h2>
-        <pre>{JSON.stringify(status, null, 2)}</pre>
+      <section className="panel dashboard-summary">
+        <div>
+          <h2>Admin Action Center</h2>
+          <p className="muted-copy">
+            Backend {backendHealth.toLowerCase()} | Last updated {lastUpdated}
+          </p>
+        </div>
+        <span className={`status-chip status-${backendHealth === "Online" ? "success" : "blocked"}`}>
+          {backendHealth}
+        </span>
       </section>
-      <section className="panel">
-        <h2>Ping</h2>
-        <pre>{JSON.stringify(ping, null, 2)}</pre>
+
+      <section className="task-grid">
+        {tasks.map((task) => (
+          <article className={`task-card task-card-${task.severity}`} key={task.title}>
+            <div>
+              <span className="task-label">{task.title}</span>
+              <div className="metric">{task.value}</div>
+              <p className="muted-line">{task.detail}</p>
+            </div>
+            <Link className="btn btn-secondary" to={task.to}>
+              {task.action}
+            </Link>
+          </article>
+        ))}
       </section>
-      <section className="panel">
-        <h2>Unread Notifications</h2>
-        <div className="metric">{unread}</div>
+
+      <section className="dashboard-grid">
+        <article className="panel">
+          <h2>Health Summary</h2>
+          <div className="metric metric-small">{backendHealth}</div>
+          <p className="muted-line">
+            Ping: {ping?.message || ping?.status || (ping ? "OK" : "Unknown")}
+          </p>
+          <details className="diagnostic-details">
+            <summary>Raw backend health</summary>
+            <pre>{JSON.stringify(status, null, 2)}</pre>
+          </details>
+          <details className="diagnostic-details">
+            <summary>Raw ping</summary>
+            <pre>{JSON.stringify(ping, null, 2)}</pre>
+          </details>
+        </article>
+        {canUseSupport ? (
+          <article className="panel">
+            <h2>Support Shortcuts</h2>
+            <div className="dashboard-actions">
+              <Link className="btn btn-secondary" to="/support">
+                Open Support
+              </Link>
+              <Link className="btn btn-secondary" to="/backup">
+                Open Backup
+              </Link>
+              <Link className="btn btn-secondary" to="/configuration">
+                Open Config
+              </Link>
+            </div>
+          </article>
+        ) : null}
       </section>
-      {ops ? (
-        <>
-          <section className="panel">
-            <h2>Tenant Scale</h2>
-            <div className="metric">{ops.tenancy?.organizations ?? 0}</div>
-            <p className="muted-line">
-              {ops.tenancy?.users ?? 0} people | {ops.tenancy?.workgroups ?? 0} spaces
-            </p>
-          </section>
-          <section className="panel">
-            <h2>Active Sessions</h2>
-            <div className="metric">{ops.sessions?.active ?? 0}</div>
-            <p className="muted-line">{ops.sessions?.revoked ?? 0} revoked sessions</p>
-          </section>
-          <section className="panel">
-            <h2>Mail Delivery</h2>
-            <div className="metric">{ops.mail?.recentFailures24h ?? 0}</div>
-            <p className="muted-line">{ops.mail?.provider || "configured"} failures in 24h</p>
-          </section>
-          <section className="panel">
-            <h2>Storage</h2>
-            <div className="metric">{ops.storage?.provider || "local"}</div>
-            <p className="muted-line">
-              S3 bucket {ops.storage?.s3BucketConfigured ? "configured" : "not configured"}
-            </p>
-          </section>
-          <section className="panel">
-            <h2>DB Updates</h2>
-            <div className="metric">{ops.updates?.count ?? 0}</div>
-            <p className="muted-line">metadata-tracked updates</p>
-          </section>
-        </>
-      ) : null}
     </div>
   );
 }
