@@ -77,7 +77,13 @@ export default function ConfigPage({ api, session }) {
                 : "Runtime backend configuration"}
             </p>
           </div>
-          <button className="btn btn-secondary" type="button" onClick={loadConfig} disabled={loading}>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={loadConfig}
+            disabled={loading}
+            title="Refresh configuration values"
+          >
             {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>

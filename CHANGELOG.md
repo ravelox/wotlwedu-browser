@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.34 - 2026-05-17
+- Restore visible labels for admin action buttons and remove generic generated action icons.
+- Add clearer labels and tooltips for repeated search, pagination, export, restore, refresh, reset, save, and delete controls.
+
 ## 0.1.33 - 2026-05-16
 - Add CI for production dependency audit, frontend build, and container build.
 - Update production dependency locks to clear high-severity audit findings.

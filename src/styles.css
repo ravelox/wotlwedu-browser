@@ -461,6 +461,7 @@ input[type="checkbox"] {
 .actions {
   margin-top: 12px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -531,56 +532,18 @@ input[type="checkbox"] {
   color: var(--text);
   background: var(--panel);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
 }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background: var(--panel); color: var(--text); }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
-
-.actions .btn,
-.api-bar-actions .btn,
-.password-row .btn,
-.pagination-row .btn,
-.panel-header .btn,
-.filter-row .btn {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-  font-size: 0;
-}
-
-.actions .btn::before,
-.api-bar-actions .btn::before,
-.password-row .btn::before,
-.pagination-row .btn::before,
-.panel-header .btn::before,
-.filter-row .btn::before {
-  content: "+";
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.actions .btn-secondary::before,
-.api-bar-actions .btn-secondary::before,
-.password-row .btn-secondary::before,
-.pagination-row .btn-secondary::before,
-.panel-header .btn-secondary::before,
-.filter-row .btn-secondary::before {
-  content: "↗";
-}
-
-.actions .btn-danger::before,
-.api-bar-actions .btn-danger::before,
-.password-row .btn-danger::before,
-.pagination-row .btn-danger::before,
-.panel-header .btn-danger::before,
-.filter-row .btn-danger::before {
-  content: "×";
-}
 
 .banner {
   border-radius: 10px;

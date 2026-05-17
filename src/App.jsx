@@ -197,6 +197,7 @@ export default function App() {
                     type="button"
                     onClick={onResetApiUrl}
                     disabled={!hasApiOverride && baseUrl === DEFAULT_API_BASE_URL}
+                    title="Reset API base URL to the configured default"
                   >
                     Reset to Default
                   </button>

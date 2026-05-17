@@ -553,13 +553,19 @@ export default function SupportPage({
           </label>
         </div>
         <div className="actions">
-          <button className="btn" type="button" onClick={() => loadSupportData(1, 1)}>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => loadSupportData(1, 1)}
+            title="Load support data for the selected filters and scope"
+          >
             Load Scoped Data
           </button>
           <button
             className="btn btn-secondary"
             type="button"
             onClick={() => exportAudit("auth")}
+            title="Export authentication audit results as CSV"
           >
             Export Auth CSV
           </button>
@@ -567,6 +573,7 @@ export default function SupportPage({
             className="btn btn-secondary"
             type="button"
             onClick={() => exportAudit("public")}
+            title="Export public poll audit results as CSV"
           >
             Export Public CSV
           </button>

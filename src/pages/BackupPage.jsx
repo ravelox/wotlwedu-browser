@@ -180,7 +180,13 @@ export default function BackupPage({ api, session, scope }) {
             ) : null}
 
             <div className="actions">
-              <button className="btn" type="button" onClick={exportBackup} disabled={exportDisabled}>
+              <button
+                className="btn"
+                type="button"
+                onClick={exportBackup}
+                disabled={exportDisabled}
+                title="Export backup JSON for the selected scope"
+              >
                 {busy ? "Working..." : "Export JSON"}
               </button>
             </div>
@@ -209,7 +215,12 @@ export default function BackupPage({ api, session, scope }) {
               </select>
             </label>
             <div className="actions">
-              <button className="btn btn-danger" type="submit" disabled={busy || !restoreFile}>
+              <button
+                className="btn btn-danger"
+                type="submit"
+                disabled={busy || !restoreFile}
+                title="Restore data from the selected JSON backup"
+              >
                 {busy ? "Working..." : "Restore JSON"}
               </button>
             </div>

@@ -295,6 +295,7 @@ export default function LoginPage({ api, onLogin, appVersion }) {
                   className="btn btn-secondary"
                   onClick={() => setShowPassword((s) => !s)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>

@@ -31,6 +31,8 @@ export function PaginationControls({
         type="button"
         onClick={() => onPageChange(Math.max(1, page - 1))}
         disabled={page <= 1}
+        title="Go to previous page"
+        aria-label="Go to previous page"
       >
         Previous
       </button>
@@ -39,6 +41,8 @@ export function PaginationControls({
         type="button"
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages}
+        title="Go to next page"
+        aria-label="Go to next page"
       >
         Next
       </button>
@@ -83,7 +87,13 @@ export function ConfirmActionModal({
           />
         </label>
         <div className="actions">
-          <button className="btn btn-secondary" type="button" onClick={onCancel} disabled={busy}>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            title="Cancel this action"
+          >
             Cancel
           </button>
           <button
@@ -91,6 +101,7 @@ export function ConfirmActionModal({
             type="button"
             onClick={() => onConfirm(reason.trim())}
             disabled={busy || reason.trim().length < 6}
+            title="Confirm this production change"
           >
             {busy ? "Applying..." : "Confirm"}
           </button>
@@ -166,7 +177,12 @@ export function SearchPicker({
           onChange={(event) => setQuery(event.target.value)}
           placeholder={placeholder}
         />
-        <button className="btn btn-secondary" type="submit" disabled={disabled || loading}>
+        <button
+          className="btn btn-secondary"
+          type="submit"
+          disabled={disabled || loading}
+          title={loading ? "Search in progress" : "Search matching records"}
+        >
           {loading ? "Searching..." : "Search"}
         </button>
         {value ? (
@@ -179,6 +195,7 @@ export function SearchPicker({
               onChange("");
             }}
             disabled={disabled}
+            title="Clear selected record"
           >
             Clear
           </button>

@@ -529,11 +529,20 @@ export default function ResourcePage({ api, definition, session, scope }) {
                 />
               </div>
             )}
-            <button className="btn" type="button" onClick={() => listRows(1)}>Search</button>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => listRows(1)}
+              title={`Search ${definition.title.toLowerCase()}`}
+            >
+              Search
+            </button>
             {selectedId && (
               <button
                 className="btn btn-secondary"
                 onClick={resetEditor}
+                type="button"
+                title="Clear the selected record and reset the editor"
               >
                 Clear Selection
               </button>
@@ -692,6 +701,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
                   type="button"
                   onClick={onUploadImage}
                   disabled={saving || loading || !selectedId || !uploadFile}
+                  title="Upload the selected image file"
                 >
                   Upload
                 </button>
@@ -734,7 +744,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
                   onChange={(event) => setCapabilityFilter(event.target.value)}
                   placeholder="Search capabilities"
                 />
-                <button className="btn btn-secondary" type="submit">Search</button>
+                <button className="btn btn-secondary" type="submit" title="Search capabilities">
+                  Search
+                </button>
               </form>
               <div className="capability-picker">
                 {visibleCapabilities.map((cap) => {
@@ -773,7 +785,9 @@ export default function ResourcePage({ api, definition, session, scope }) {
         </div>
 
         <div className="actions">
-          <button className="btn" disabled={saving} onClick={onSave}>{saving ? "Saving..." : "Save"}</button>
+          <button className="btn" disabled={saving} onClick={onSave} title="Save this record">
+            {saving ? "Saving..." : "Save"}
+          </button>
           {definition.deletable !== false && (
             <button
               className="btn btn-danger"
@@ -786,6 +800,7 @@ export default function ResourcePage({ api, definition, session, scope }) {
                   impact: "The selected record will be deleted from production data.",
                 })
               }
+              title="Delete the selected record"
             >
               Delete
             </button>
