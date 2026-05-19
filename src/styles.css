@@ -262,6 +262,27 @@ nav { display: grid; gap: 6px; }
   color: var(--muted);
   font-size: 0.9rem;
 }
+.empty-state {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--panel);
+}
+.empty-state strong {
+  color: var(--text);
+}
+.action-with-reason {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.disabled-reason {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
 .metric-small {
   font-size: 1rem;
   overflow-wrap: anywhere;
@@ -643,6 +664,62 @@ input[type="checkbox"] {
   flex-wrap: wrap;
   gap: 8px;
 }
+.section-header-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--panel);
+}
+.checklist-item:hover {
+  border-color: var(--danger);
+}
+.checkmark {
+  flex: 0 0 auto;
+  min-width: 42px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+.checkmark-done {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.glossary-grid details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.glossary-grid summary {
+  cursor: pointer;
+  font-weight: 700;
+}
 
 .login-page {
   min-height: 100vh;
@@ -889,6 +966,8 @@ pre {
   }
   .dashboard-grid,
   .task-grid,
+  .checklist-grid,
+  .glossary-grid,
   .ai-grid,
   .backup-grid,
   .form-grid,

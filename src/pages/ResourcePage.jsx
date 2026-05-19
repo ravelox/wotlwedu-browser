@@ -8,6 +8,7 @@ import {
   PaginationControls,
   SearchPicker,
 } from "../components/AdminControls";
+import DisabledReason from "../components/DisabledReason";
 import ScopeBadge from "../components/ScopeBadge";
 
 function coerceValue(type, value) {
@@ -54,6 +55,23 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   const isCategoryResource = definition.path === "/category";
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
   const canChooseCategoryOwner = session?.systemAdmin === true;
+  const hasLoadedRows = total > 0 || rows.length > 0;
+  const uploadDisabledReason =
+    saving || loading
+      ? "record operation is already running"
+      : !selectedId
+        ? "save the picture record first"
+        : !uploadFile
+          ? "choose a PNG or JPEG file"
+          : "";
+  const deleteDisabledReason =
+    saving
+      ? "record operation is already running"
+      : !selectedId
+        ? "select a record first"
+        : isRoleResource && selectedRoleProtected
+          ? "protected roles cannot be deleted"
+          : "";
   const tenantLabel =
     scope?.activeOrganizationId ||
     scopedOrganizationId ||
@@ -567,46 +585,57 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
 
         {loading ? <Loading /> : (
           <div className="data-table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>
-                    <button className="table-sort" type="button" onClick={() => toggleSort(idField)}>
-                      ID{sortKey === idField ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
-                    </button>
-                  </th>
-                  {fields.slice(0, 3).map(([key, label]) => (
-                    <th key={key}>
-                      <button className="table-sort" type="button" onClick={() => toggleSort(key)}>
-                        {label}{sortKey === key ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
+            {!hasLoadedRows ? (
+              <div className="empty-state">
+                <strong>No {definition.title.toLowerCase()} found.</strong>
+                <span>
+                  {filter
+                    ? "Clear the filter or broaden the current scope, then search again."
+                    : "Create a new record in the editor, or choose a different organization or space scope."}
+                </span>
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <button className="table-sort" type="button" onClick={() => toggleSort(idField)}>
+                        ID{sortKey === idField ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
                       </button>
                     </th>
-                  ))}
-                  {isRoleResource && <th>Status</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedRows.map((row) => (
-                  <tr
-                    key={row[idField]}
-                    className={selectedId === row[idField] ? "row-selected" : ""}
-                    onClick={() => loadSingle(row[idField])}
-                  >
-                    <td>{row[idField]}</td>
-                    {fields.slice(0, 3).map(([key]) => <td key={key}>{String(row[key] ?? "")}</td>)}
-                    {isRoleResource && (
-                      <td>
-                        {isProtectedRole(row) ? (
-                          <span className="role-protected-badge">Protected</span>
-                        ) : (
-                          <span className="role-standard-badge">Editable</span>
-                        )}
-                      </td>
-                    )}
+                    {fields.slice(0, 3).map(([key, label]) => (
+                      <th key={key}>
+                        <button className="table-sort" type="button" onClick={() => toggleSort(key)}>
+                          {label}{sortKey === key ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
+                        </button>
+                      </th>
+                    ))}
+                    {isRoleResource && <th>Status</th>}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {sortedRows.map((row) => (
+                    <tr
+                      key={row[idField]}
+                      className={selectedId === row[idField] ? "row-selected" : ""}
+                      onClick={() => loadSingle(row[idField])}
+                    >
+                      <td>{row[idField]}</td>
+                      {fields.slice(0, 3).map(([key]) => <td key={key}>{String(row[key] ?? "")}</td>)}
+                      {isRoleResource && (
+                        <td>
+                          {isProtectedRole(row) ? (
+                            <span className="role-protected-badge">Protected</span>
+                          ) : (
+                            <span className="role-standard-badge">Editable</span>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
             <PaginationControls
               page={page}
               itemsPerPage={itemsPerPage}
@@ -705,15 +734,18 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                 disabled={saving || loading}
               />
               <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={onUploadImage}
-                  disabled={saving || loading || !selectedId || !uploadFile}
-                  title="Upload the selected image file"
-                >
-                  Upload
-                </button>
+                <div className="action-with-reason">
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={onUploadImage}
+                    disabled={saving || loading || !selectedId || !uploadFile}
+                    title={uploadDisabledReason || "Upload the selected image file"}
+                  >
+                    Upload
+                  </button>
+                  <DisabledReason reason={uploadDisabledReason} />
+                </div>
                 {!selectedId && (
                   <span style={{ fontSize: 12, color: "var(--muted)" }}>
                     Create/save the image record first to get an ID.
@@ -798,21 +830,24 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
             {saving ? "Saving..." : "Save"}
           </button>
           {definition.deletable !== false && (
-            <button
-              className="btn btn-danger"
-              disabled={!selectedId || saving || (isRoleResource && selectedRoleProtected)}
-              onClick={() =>
-                setConfirmAction({
-                  title: `Delete ${singularizeTitle(definition.title)}`,
-                  tenant: tenantLabel,
-                  target: selectedId,
-                  impact: "The selected record will be deleted from production data.",
-                })
-              }
-              title="Delete the selected record"
-            >
-              Delete
-            </button>
+            <div className="action-with-reason">
+              <button
+                className="btn btn-danger"
+                disabled={!selectedId || saving || (isRoleResource && selectedRoleProtected)}
+                onClick={() =>
+                  setConfirmAction({
+                    title: `Delete ${singularizeTitle(definition.title)}`,
+                    tenant: tenantLabel,
+                    target: selectedId,
+                    impact: "The selected record will be deleted from production data.",
+                  })
+                }
+                title={deleteDisabledReason || "Delete the selected record"}
+              >
+                Delete
+              </button>
+              <DisabledReason reason={deleteDisabledReason} />
+            </div>
           )}
         </div>
       </div>

@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.37 - 2026-05-18
+- Add first-run diagnostics and glossary guidance to the dashboard.
+- Add explanatory empty states for resource tables and disabled-reason text for backup, restore, upload, and delete actions.
+
 ## 0.1.36 - 2026-05-17
 - Turn the dashboard into a task-oriented admin action center with direct links into support, notification, backup, people, and picture workflows.
 - Replace always-visible raw health JSON with summarized backend health and expandable diagnostics.

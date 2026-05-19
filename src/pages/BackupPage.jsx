@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { SearchPicker } from "../components/AdminControls";
+import DisabledReason from "../components/DisabledReason";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import ScopeBadge from "../components/ScopeBadge";
 import { toApiError } from "../lib/api";
@@ -50,6 +51,18 @@ export default function BackupPage({ api, session, scope, onGlobalModeUsed }) {
     busy ||
     (backupScope === "organization" && !selectedOrganizationId) ||
     (backupScope === "space" && !selectedWorkgroupId);
+  const exportDisabledReason = busy
+    ? "backup operation is already running"
+    : backupScope === "organization" && !selectedOrganizationId
+      ? "choose an organization scope"
+      : backupScope === "space" && !selectedWorkgroupId
+        ? "choose a space scope"
+        : "";
+  const restoreDisabledReason = busy
+    ? "backup operation is already running"
+    : !restoreFile
+      ? "choose a backup JSON file"
+      : "";
   const spaceSearchParams = useMemo(
     () => ({
       organizationId: selectedOrganizationId || undefined,
@@ -202,15 +215,18 @@ export default function BackupPage({ api, session, scope, onGlobalModeUsed }) {
             ) : null}
 
             <div className="actions">
-              <button
-                className="btn"
-                type="button"
-                onClick={exportBackup}
-                disabled={exportDisabled}
-                title="Export backup JSON for the selected scope"
-              >
-                {busy ? "Working..." : "Export JSON"}
-              </button>
+              <div className="action-with-reason">
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={exportBackup}
+                  disabled={exportDisabled}
+                  title={exportDisabledReason || "Export backup JSON for the selected scope"}
+                >
+                  {busy ? "Working..." : "Export JSON"}
+                </button>
+                <DisabledReason reason={exportDisabledReason} />
+              </div>
             </div>
           </div>
 
@@ -237,14 +253,17 @@ export default function BackupPage({ api, session, scope, onGlobalModeUsed }) {
               </select>
             </label>
             <div className="actions">
-              <button
-                className="btn btn-danger"
-                type="submit"
-                disabled={busy || !restoreFile}
-                title="Restore data from the selected JSON backup"
-              >
-                {busy ? "Working..." : "Restore JSON"}
-              </button>
+              <div className="action-with-reason">
+                <button
+                  className="btn btn-danger"
+                  type="submit"
+                  disabled={busy || !restoreFile}
+                  title={restoreDisabledReason || "Restore data from the selected JSON backup"}
+                >
+                  {busy ? "Working..." : "Restore JSON"}
+                </button>
+                <DisabledReason reason={restoreDisabledReason} />
+              </div>
             </div>
           </form>
         </div>
