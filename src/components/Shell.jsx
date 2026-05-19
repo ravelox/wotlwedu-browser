@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
 import { SearchPicker } from "./AdminControls";
+import CommandPalette from "./CommandPalette";
 import ScopeBadge from "./ScopeBadge";
 
 const NAV_ITEMS = [
@@ -38,6 +39,7 @@ export default function Shell({
   onChangeActiveWorkgroupId,
 }) {
   const [workgroups, setWorkgroups] = useState([]);
+  const [commandOpen, setCommandOpen] = useState(false);
   const navItems = [
     ...NAV_ITEMS,
     ...((session?.systemAdmin || session?.organizationAdmin) ? [["Support", "/support"]] : []),
@@ -74,6 +76,17 @@ export default function Shell({
       cancelled = true;
     };
   }, [api, session?.authToken, session?.systemAdmin, session?.organizationId, activeOrganizationId]);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div className="shell">
@@ -163,10 +176,30 @@ export default function Shell({
               </div>
             </div>
           </div>
-          <button className="btn btn-secondary" onClick={onLogout}>Logout</button>
+          <div className="topbar-actions">
+            <button
+              className="command-trigger"
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              aria-label="Open command search"
+              title="Open command search"
+            >
+              <span>Search admin console</span>
+              <kbd>Ctrl K</kbd>
+            </button>
+            <button className="btn btn-secondary" onClick={onLogout}>Logout</button>
+          </div>
         </header>
         <section className="page-body">{children}</section>
       </main>
+      <CommandPalette
+        api={api}
+        session={session}
+        activeOrganizationId={activeOrganizationId}
+        activeWorkgroupId={activeWorkgroupId}
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+      />
     </div>
   );
 }

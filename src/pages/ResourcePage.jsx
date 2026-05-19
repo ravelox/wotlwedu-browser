@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import Loading from "../components/Loading";
 import { toApiError } from "../lib/api";
@@ -25,6 +26,7 @@ function singularizeTitle(title) {
 }
 
 export default function ResourcePage({ api, definition, session, scope, onGlobalModeUsed }) {
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState({});
@@ -48,6 +50,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
   const [confirmAction, setConfirmAction] = useState(null);
+  const requestedId = searchParams.get("id") || "";
 
   const fields = definition.fields;
   const idField = definition.idField;
@@ -432,6 +435,11 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   useEffect(() => {
     listRows(1);
   }, [scope?.activeWorkgroupId, scope?.activeOrganizationId, categoryOwnerId, itemsPerPage]);
+
+  useEffect(() => {
+    if (!requestedId || requestedId === selectedId) return;
+    loadSingle(requestedId);
+  }, [requestedId, selectedId]);
 
   useEffect(() => {
     listCapabilities();

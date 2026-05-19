@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.38 - 2026-05-18
+- Add a global command palette with `Ctrl/Cmd+K` navigation, keyboard selection, admin actions, and scoped resource lookup.
+- Support direct record selection from command results through resource-page `id` query links.
+
 ## 0.1.37 - 2026-05-18
 - Add first-run diagnostics and glossary guidance to the dashboard.
 - Add explanatory empty states for resource tables and disabled-reason text for backup, restore, upload, and delete actions.
