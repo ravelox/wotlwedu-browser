@@ -221,6 +221,14 @@ kbd {
   grid-template-columns: 1.35fr 1fr;
   gap: 14px;
 }
+.panel-table {
+  grid-column: 1;
+  grid-row: 1;
+}
+.panel-form {
+  grid-column: 2;
+  grid-row: 1;
+}
 
 .panel-header {
   display: flex;
@@ -471,14 +479,85 @@ kbd {
   border-color: var(--danger);
   color: var(--danger);
 }
+.row-action-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+.row-action-button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+.row-action-button:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.row-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.row-action-danger {
+  color: var(--danger);
+}
 .data-table tbody tr { cursor: pointer; }
 .data-table tbody tr:hover { background: var(--danger); color: #fff; }
 .data-table tbody tr:hover .copy-id-button,
-.row-selected .copy-id-button {
+.data-table tbody tr:hover .row-action-button,
+.row-selected .copy-id-button,
+.row-selected .row-action-button {
   background: #fff;
   color: var(--danger);
 }
 .row-selected { background: var(--danger); color: #fff; }
+.context-drawer {
+  grid-column: 1 / -1;
+}
+.context-drawer-actions,
+.context-related-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.context-related h4 {
+  margin: 0 0 8px;
+}
+.detail-list {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.detail-row {
+  display: contents;
+}
+.detail-row dt,
+.detail-row dd {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.detail-row dt {
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 700;
+}
+.detail-row dd {
+  white-space: pre-wrap;
+}
 .audit-table-scroll {
   max-height: none;
   overflow: auto;
@@ -1137,6 +1216,12 @@ pre {
 @media (max-width: 1160px) {
   .shell { grid-template-columns: 220px 1fr; }
   .resource-grid { grid-template-columns: 1fr; }
+  .panel-table,
+  .panel-form,
+  .context-drawer {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 @media (max-width: 860px) {

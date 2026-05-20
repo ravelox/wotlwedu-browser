@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.41 - 2026-05-19
+- Add inline resource row actions and a read-only inspect drawer with related
+  resource links and JSON export.
+
 ## 0.1.40 - 2026-05-19
 - Add saved resource views with local custom view persistence for common admin
   support tasks.

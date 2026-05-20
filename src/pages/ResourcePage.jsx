@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ErrorBanner, SuccessBanner } from "../components/Feedback";
 import Loading from "../components/Loading";
 import { toApiError } from "../lib/api";
@@ -57,10 +57,39 @@ function formatCellValue(value) {
   return String(value);
 }
 
+const RELATED_RESOURCE_ROUTES = {
+  organizationId: { label: "Organization", route: "/organizations" },
+  workgroupId: { label: "Space", route: "/spaces" },
+  adminWorkgroupId: { label: "Admin Space", route: "/spaces" },
+  categoryId: { label: "Category", route: "/categories" },
+  imageId: { label: "Picture", route: "/pictures" },
+  itemId: { label: "Item", route: "/items" },
+  listId: { label: "List", route: "/lists" },
+  groupId: { label: "Circle", route: "/circles" },
+  electionId: { label: "Poll", route: "/polls" },
+  userId: { label: "Person", route: "/people" },
+  senderId: { label: "Sender", route: "/people" },
+  creator: { label: "Owner Person", route: "/people" },
+};
+
+function downloadJson(filename, value) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ResourcePage({ api, definition, session, scope, onGlobalModeUsed }) {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [inspectedRecord, setInspectedRecord] = useState(null);
+  const [inspectedId, setInspectedId] = useState(null);
+  const [inspecting, setInspecting] = useState(false);
   const [form, setForm] = useState({});
   const [uploadFile, setUploadFile] = useState(null);
   const [allCapabilities, setAllCapabilities] = useState([]);
@@ -129,6 +158,13 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
 
   const isProtectedRole = (role) =>
     role?.protected === true || role?.protected === 1 || role?.protected === "1";
+
+  const fieldLabels = useMemo(() => {
+    const labels = new Map(fields.map(([key, label]) => [key, label]));
+    labels.set(idField, "ID");
+    if (isRoleResource) labels.set("protected", "Protected");
+    return labels;
+  }, [fields, idField, isRoleResource]);
 
   const availableColumns = useMemo(() => {
     const labels = new Map(fields.map(([key, label]) => [key, label]));
@@ -327,6 +363,29 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
     }
   };
 
+  const inspectSingle = async (id, fallbackRecord = null) => {
+    if (!id) return;
+    setInspecting(true);
+    setError("");
+    try {
+      const response = await api.get(`${definition.path}/${id}`, {
+        params: isRoleResource ? { detail: "capability" } : undefined,
+      });
+      if (response.status >= 400) throw toApiError(response, `Failed to inspect ${definition.title} item`);
+      const entity = response.data?.data?.[definition.singleKey] || response.data?.[definition.singleKey] || fallbackRecord;
+      setInspectedRecord(entity || fallbackRecord);
+      setInspectedId(id);
+    } catch (err) {
+      if (fallbackRecord) {
+        setInspectedRecord(fallbackRecord);
+        setInspectedId(id);
+      }
+      setError(err.message);
+    } finally {
+      setInspecting(false);
+    }
+  };
+
   const syncRoleCapabilities = async (roleId) => {
     if (!isRoleResource || !roleId) return;
 
@@ -430,9 +489,10 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   };
 
   const executeDelete = async (reason) => {
-    if (!selectedId) return;
+    const targetId = confirmAction?.targetId || selectedId;
+    if (!targetId) return;
     if (definition.deletable === false) return;
-    if (isRoleResource && selectedRoleProtected) {
+    if (isRoleResource && (confirmAction?.protectedRole || (targetId === selectedId && selectedRoleProtected))) {
       setError("Protected roles cannot be deleted.");
       return;
     }
@@ -440,7 +500,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
     setError("");
     setSuccess("");
     try {
-      const response = await api.delete(`${definition.path}/${selectedId}`, {
+      const response = await api.delete(`${definition.path}/${targetId}`, {
         data: { reason },
       });
       if (response.status >= 400) throw toApiError(response, `Failed to delete ${definition.title}`);
@@ -448,17 +508,23 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
       if (!scope?.activeOrganizationId && scope?.globalModeConfirmed) {
         onGlobalModeUsed?.();
       }
-      setSelectedId(null);
-      const resetOwnerId = session?.userId || "";
-      setCategoryOwnerId(resetOwnerId);
-      setForm({
-        ...newRecord,
-        ...(isCategoryResource ? { creator: resetOwnerId } : {}),
-      });
-      setSelectedCapabilityIds([]);
-      setInitialCapabilityIds([]);
-      setSelectedRoleProtected(false);
-      setShowAllRoleCapabilities(false);
+      if (targetId === selectedId) {
+        setSelectedId(null);
+        const resetOwnerId = session?.userId || "";
+        setCategoryOwnerId(resetOwnerId);
+        setForm({
+          ...newRecord,
+          ...(isCategoryResource ? { creator: resetOwnerId } : {}),
+        });
+        setSelectedCapabilityIds([]);
+        setInitialCapabilityIds([]);
+        setSelectedRoleProtected(false);
+        setShowAllRoleCapabilities(false);
+      }
+      if (targetId === inspectedId) {
+        setInspectedId(null);
+        setInspectedRecord(null);
+      }
       await listRows();
     } catch (err) {
       setError(err.message);
@@ -737,6 +803,30 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
     } catch {
       setError(`Unable to copy ${label}.`);
     }
+  }
+
+  function openRelatedResource(route, id) {
+    if (!route || !id) return;
+    navigate(`${route}?id=${encodeURIComponent(id)}`);
+  }
+
+  function relatedLinksFor(record) {
+    return Object.entries(RELATED_RESOURCE_ROUTES)
+      .filter(([key]) => record?.[key])
+      .map(([key, config]) => ({ ...config, key, id: record[key] }));
+  }
+
+  function requestRowDelete(record) {
+    const rowId = record?.[idField];
+    if (!rowId || definition.deletable === false) return;
+    setConfirmAction({
+      title: `Delete ${singularizeTitle(definition.title)}`,
+      tenant: tenantLabel,
+      target: rowId,
+      targetId: rowId,
+      protectedRole: isRoleResource && isProtectedRole(record),
+      impact: "The selected record will be deleted from production data.",
+    });
   }
 
   function pickerConfig(type) {
@@ -1043,6 +1133,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                         </button>
                       </th>
                     ))}
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1081,6 +1172,63 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                           )}
                         </td>
                       ))}
+                      <td>
+                        <div className="row-action-menu" aria-label={`${definition.title} row actions`}>
+                          <button
+                            className="row-action-button"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              inspectSingle(row[idField], row);
+                            }}
+                          >
+                            Inspect
+                          </button>
+                          <button
+                            className="row-action-button"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              loadSingle(row[idField]);
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="row-action-button"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              copyText(row[idField], "ID");
+                            }}
+                          >
+                            Copy ID
+                          </button>
+                          <button
+                            className="row-action-button"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              downloadJson(`${resourceKey}-${row[idField]}.json`, row);
+                            }}
+                          >
+                            Export JSON
+                          </button>
+                          {definition.deletable !== false ? (
+                            <button
+                              className="row-action-button row-action-danger"
+                              type="button"
+                              disabled={isRoleResource && isProtectedRole(row)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                requestRowDelete(row);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1099,6 +1247,72 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
           </div>
         )}
       </div>
+
+      {inspectedRecord ? (
+        <aside className="panel context-drawer" aria-label="Read-only record details">
+          <div className="panel-header">
+            <div>
+              <h3>Inspect {inspectedId}</h3>
+              <p className="muted-copy">Read-only details. Editing state is unchanged.</p>
+            </div>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => {
+                setInspectedRecord(null);
+                setInspectedId(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+          {inspecting ? <Loading /> : null}
+          <div className="context-drawer-actions">
+            <button className="btn btn-secondary" type="button" onClick={() => loadSingle(inspectedId)}>
+              Edit This Record
+            </button>
+            <button className="btn btn-secondary" type="button" onClick={() => copyText(inspectedId, "ID")}>
+              Copy ID
+            </button>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => downloadJson(`${resourceKey}-${inspectedId}.json`, inspectedRecord)}
+            >
+              Export JSON
+            </button>
+          </div>
+          {relatedLinksFor(inspectedRecord).length ? (
+            <div className="context-related">
+              <h4>Related Resources</h4>
+              <div className="context-related-list">
+                {relatedLinksFor(inspectedRecord).map((link) => (
+                  <button
+                    className="filter-chip"
+                    type="button"
+                    key={`${link.key}-${link.id}`}
+                    onClick={() => openRelatedResource(link.route, link.id)}
+                  >
+                    {link.label}: {link.id}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <dl className="detail-list">
+            {Object.entries(inspectedRecord).map(([key, value]) => (
+              <div key={key} className="detail-row">
+                <dt>{fieldLabels.get(key) || key}</dt>
+                <dd>
+                  {key === "capabilities" && Array.isArray(value)
+                    ? value.map((capability) => capability?.name || capability?.id).filter(Boolean).join(", ")
+                    : formatCellValue(value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </aside>
+      ) : null}
 
       <div className="panel panel-form">
         <div className="panel-header">
