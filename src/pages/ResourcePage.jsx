@@ -50,12 +50,15 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
   const [confirmAction, setConfirmAction] = useState(null);
+  const [structuredFilters, setStructuredFilters] = useState({});
   const requestedId = searchParams.get("id") || "";
 
   const fields = definition.fields;
   const idField = definition.idField;
   const isRoleResource = definition.path === "/role";
   const isCategoryResource = definition.path === "/category";
+  const isPeopleResource = definition.path === "/person";
+  const isPollResource = definition.path === "/poll";
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
   const canChooseCategoryOwner = session?.systemAdmin === true;
   const hasLoadedRows = total > 0 || rows.length > 0;
@@ -134,6 +137,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
             definition.supportsWorkgroupScope && scope?.activeWorkgroupId
               ? scope.activeWorkgroupId
               : undefined,
+          ...structuredFilters,
         },
       });
       if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title}`);
@@ -434,7 +438,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
 
   useEffect(() => {
     listRows(1);
-  }, [scope?.activeWorkgroupId, scope?.activeOrganizationId, categoryOwnerId, itemsPerPage]);
+  }, [scope?.activeWorkgroupId, scope?.activeOrganizationId, categoryOwnerId, itemsPerPage, structuredFilters]);
 
   useEffect(() => {
     if (!requestedId || requestedId === selectedId) return;
@@ -465,6 +469,27 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
       setSortDirection("asc");
     }
   }
+
+  function updateStructuredFilter(key, value) {
+    setStructuredFilters((current) => {
+      const next = { ...current };
+      if (value === "" || value === undefined || value === null) delete next[key];
+      else next[key] = value;
+      return next;
+    });
+    setPage(1);
+  }
+
+  function clearStructuredFilter(key) {
+    updateStructuredFilter(key, "");
+  }
+
+  function clearAllStructuredFilters() {
+    setStructuredFilters({});
+    setPage(1);
+  }
+
+  const structuredFilterEntries = Object.entries(structuredFilters);
 
   function pickerConfig(type) {
     const orgId = scope?.activeOrganizationId || form.organizationId || session?.organizationId || "";
@@ -559,6 +584,70 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                 />
               </div>
             )}
+            {isPeopleResource && (
+              <>
+                <select
+                  value={structuredFilters.active || ""}
+                  onChange={(event) => updateStructuredFilter("active", event.target.value)}
+                  aria-label="Active status"
+                >
+                  <option value="">Any active state</option>
+                  <option value="true">Active</option>
+                  <option value="false">Disabled</option>
+                </select>
+                <select
+                  value={structuredFilters.verified || ""}
+                  onChange={(event) => updateStructuredFilter("verified", event.target.value)}
+                  aria-label="Verification status"
+                >
+                  <option value="">Any verification</option>
+                  <option value="true">Verified</option>
+                  <option value="false">Unverified</option>
+                </select>
+                <select
+                  value={structuredFilters.adminRole || ""}
+                  onChange={(event) => updateStructuredFilter("adminRole", event.target.value)}
+                  aria-label="Admin role"
+                >
+                  <option value="">Any role</option>
+                  <option value="systemAdmin">System admins</option>
+                  <option value="organizationAdmin">Organization admins</option>
+                  <option value="workgroupAdmin">Space admins</option>
+                </select>
+              </>
+            )}
+            {isPollResource && (
+              <>
+                <select
+                  value={structuredFilters.pollStatus || ""}
+                  onChange={(event) => updateStructuredFilter("pollStatus", event.target.value)}
+                  aria-label="Poll status"
+                >
+                  <option value="">Any poll status</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                </select>
+                <select
+                  value={structuredFilters.publicStatus || ""}
+                  onChange={(event) => updateStructuredFilter("publicStatus", event.target.value)}
+                  aria-label="Public status"
+                >
+                  <option value="">Any public status</option>
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+                <select
+                  value={structuredFilters.abuseStatus || ""}
+                  onChange={(event) => updateStructuredFilter("abuseStatus", event.target.value)}
+                  aria-label="Abuse status"
+                >
+                  <option value="">Any abuse status</option>
+                  <option value="normal">Normal</option>
+                  <option value="reported">Reported</option>
+                  <option value="locked">Locked</option>
+                </select>
+              </>
+            )}
             <button
               className="btn"
               type="button"
@@ -579,6 +668,24 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
             )}
           </div>
         </div>
+        {structuredFilterEntries.length ? (
+          <div className="filter-chip-row" aria-label="Applied structured filters">
+            {structuredFilterEntries.map(([key, value]) => (
+              <button
+                className="filter-chip"
+                key={key}
+                type="button"
+                onClick={() => clearStructuredFilter(key)}
+                title={`Remove ${key} filter`}
+              >
+                {key}: {value} ×
+              </button>
+            ))}
+            <button className="filter-chip" type="button" onClick={clearAllStructuredFilters}>
+              Clear filters
+            </button>
+          </div>
+        ) : null}
         <div className="scope-banner">
           <strong>Scope</strong>
           <ScopeBadge

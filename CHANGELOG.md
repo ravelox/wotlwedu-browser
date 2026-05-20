@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.39 - 2026-05-19
+- Add structured People and Poll resource filters with visible removable filter chips.
+- Add structured Support Auth Audit and Public Poll Abuse filters, including date ranges and matching CSV export filters.
+
 ## 0.1.38 - 2026-05-18
 - Add a global command palette with `Ctrl/Cmd+K` navigation, keyboard selection, admin actions, and scoped resource lookup.
 - Support direct record selection from command results through resource-page `id` query links.

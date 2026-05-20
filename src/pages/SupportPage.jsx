@@ -46,6 +46,8 @@ export default function SupportPage({
   const [provider, setProvider] = useState("");
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [overview, setOverview] = useState(null);
   const [opsOverview, setOpsOverview] = useState(null);
   const [audits, setAudits] = useState([]);
@@ -56,6 +58,9 @@ export default function SupportPage({
   const [publicAuditPage, setPublicAuditPage] = useState(1);
   const [publicAuditTotal, setPublicAuditTotal] = useState(0);
   const [publicPollId, setPublicPollId] = useState("");
+  const [publicEventType, setPublicEventType] = useState("");
+  const [publicOutcome, setPublicOutcome] = useState("");
+  const [publicActorType, setPublicActorType] = useState("");
   const [moderationReason, setModerationReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,6 +121,8 @@ export default function SupportPage({
         ...(provider.trim() ? { provider: provider.trim() } : {}),
         ...(email.trim() ? { email: email.trim() } : {}),
         ...(userId.trim() ? { userId: userId.trim() } : {}),
+        ...(dateFrom ? { dateFrom } : {}),
+        ...(dateTo ? { dateTo } : {}),
       };
       const [overviewResponse, auditResponse, opsResponse] = await Promise.all([
         api.get("/support/auth/overview", { params }),
@@ -142,6 +149,11 @@ export default function SupportPage({
         ...scopeParams,
         days,
         ...(publicPollId.trim() ? { electionId: publicPollId.trim() } : {}),
+        ...(publicEventType.trim() ? { eventType: publicEventType.trim() } : {}),
+        ...(publicOutcome.trim() ? { outcome: publicOutcome.trim() } : {}),
+        ...(publicActorType.trim() ? { actorType: publicActorType.trim() } : {}),
+        ...(dateFrom ? { dateFrom } : {}),
+        ...(dateTo ? { dateTo } : {}),
       };
       const [publicOverviewResponse, publicAuditResponse] = await Promise.all([
         api.get("/support/publicpoll/overview", { params: publicParams }),
@@ -455,10 +467,17 @@ export default function SupportPage({
               ...(provider.trim() ? { provider: provider.trim() } : {}),
               ...(email.trim() ? { email: email.trim() } : {}),
               ...(userId.trim() ? { userId: userId.trim() } : {}),
+              ...(dateFrom ? { dateFrom } : {}),
+              ...(dateTo ? { dateTo } : {}),
             }
           : {
               ...scopeParams,
               ...(publicPollId.trim() ? { electionId: publicPollId.trim() } : {}),
+              ...(publicEventType.trim() ? { eventType: publicEventType.trim() } : {}),
+              ...(publicOutcome.trim() ? { outcome: publicOutcome.trim() } : {}),
+              ...(publicActorType.trim() ? { actorType: publicActorType.trim() } : {}),
+              ...(dateFrom ? { dateFrom } : {}),
+              ...(dateTo ? { dateTo } : {}),
             };
       const response = await api.get(
         kind === "auth" ? "/support/auth/audit/export" : "/support/publicpoll/audit/export",
@@ -481,6 +500,41 @@ export default function SupportPage({
         ? current.filter((item) => item !== resource)
         : [...current, resource]
     );
+  }
+
+  const authFilterChips = [
+    ["eventType", eventType],
+    ["outcome", outcome],
+    ["provider", provider],
+    ["email", email],
+    ["userId", userId],
+    ["dateFrom", dateFrom],
+    ["dateTo", dateTo],
+  ].filter(([, value]) => value);
+  const publicFilterChips = [
+    ["electionId", publicPollId],
+    ["publicEventType", publicEventType],
+    ["publicOutcome", publicOutcome],
+    ["actorType", publicActorType],
+    ["dateFrom", dateFrom],
+    ["dateTo", dateTo],
+  ].filter(([, value]) => value);
+
+  function clearSupportFilter(key) {
+    const setters = {
+      eventType: setEventType,
+      outcome: setOutcome,
+      provider: setProvider,
+      email: setEmail,
+      userId: setUserId,
+      electionId: setPublicPollId,
+      publicEventType: setPublicEventType,
+      publicOutcome: setPublicOutcome,
+      actorType: setPublicActorType,
+      dateFrom: setDateFrom,
+      dateTo: setDateTo,
+    };
+    setters[key]?.("");
   }
 
   if (!canAccessSupport) {
@@ -541,15 +595,34 @@ export default function SupportPage({
           </label>
           <label className="field">
             <span>Event Type</span>
-            <input value={eventType} onChange={(e) => setEventType(e.target.value)} />
+            <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+              <option value="">Any event type</option>
+              <option value="login_success">Login success</option>
+              <option value="login_failure">Login failure</option>
+              <option value="organization_invite_create">Invite created</option>
+              <option value="organization_invite_resend">Invite resent</option>
+              <option value="organization_invite_revoke">Invite revoked</option>
+              <option value="support_password_reset">Password reset</option>
+            </select>
           </label>
           <label className="field">
             <span>Outcome</span>
-            <input value={outcome} onChange={(e) => setOutcome(e.target.value)} />
+            <select value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+              <option value="">Any outcome</option>
+              <option value="success">Success</option>
+              <option value="failure">Failure</option>
+              <option value="blocked">Blocked</option>
+              <option value="pending">Pending</option>
+            </select>
           </label>
           <label className="field">
             <span>Provider</span>
-            <input value={provider} onChange={(e) => setProvider(e.target.value)} />
+            <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+              <option value="">Any provider</option>
+              <option value="password">Password</option>
+              <option value="google">Google</option>
+              <option value="support">Support</option>
+            </select>
           </label>
           <label className="field">
             <span>Email</span>
@@ -567,7 +640,24 @@ export default function SupportPage({
               placeholder="Search person"
             />
           </label>
+          <label className="field">
+            <span>From</span>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>To</span>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </label>
         </div>
+        {authFilterChips.length ? (
+          <div className="filter-chip-row" aria-label="Applied support audit filters">
+            {authFilterChips.map(([key, value]) => (
+              <button className="filter-chip" key={`auth-${key}`} type="button" onClick={() => clearSupportFilter(key)}>
+                {key}: {value} ×
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="actions">
           <button
             className="btn"
@@ -750,6 +840,37 @@ export default function SupportPage({
             <input value={publicPollId} onChange={(e) => setPublicPollId(e.target.value)} />
           </label>
           <label className="field">
+            <span>Event Type</span>
+            <select value={publicEventType} onChange={(e) => setPublicEventType(e.target.value)}>
+              <option value="">Any public event</option>
+              <option value="public_poll_reported">Reported</option>
+              <option value="public_poll_invite_blocked_trust">Blocked by trust</option>
+              <option value="public_poll_invite_blocked_suppression">Blocked by suppression</option>
+              <option value="public_poll_moderation_lock">Moderation lock</option>
+              <option value="public_poll_moderation_restore">Moderation restore</option>
+              <option value="public_poll_moderation_remove_public_access">Public access removed</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Outcome</span>
+            <select value={publicOutcome} onChange={(e) => setPublicOutcome(e.target.value)}>
+              <option value="">Any outcome</option>
+              <option value="success">Success</option>
+              <option value="flagged">Flagged</option>
+              <option value="blocked">Blocked</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Actor Type</span>
+            <select value={publicActorType} onChange={(e) => setPublicActorType(e.target.value)}>
+              <option value="">Any actor</option>
+              <option value="user">User</option>
+              <option value="guest">Guest</option>
+              <option value="support">Support</option>
+              <option value="system">System</option>
+            </select>
+          </label>
+          <label className="field">
             <span>Moderation Reason</span>
             <input
               value={moderationReason}
@@ -758,6 +879,15 @@ export default function SupportPage({
             />
           </label>
         </div>
+        {publicFilterChips.length ? (
+          <div className="filter-chip-row" aria-label="Applied public poll abuse filters">
+            {publicFilterChips.map(([key, value]) => (
+              <button className="filter-chip" key={`public-${key}`} type="button" onClick={() => clearSupportFilter(key)}>
+                {key}: {value} ×
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="dashboard-grid" style={{ marginTop: 12 }}>
           <article className="panel">
             <h3>Total Events</h3>

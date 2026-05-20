@@ -237,6 +237,26 @@ kbd {
   flex-wrap: wrap;
 }
 .filter-picker { min-width: 260px; }
+.filter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+.filter-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--text);
+  background: var(--panel);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.filter-chip:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
 
 .data-table {
   width: 100%;
