@@ -625,6 +625,87 @@ kbd {
 .context-drawer {
   grid-column: 1 / -1;
 }
+.role-comparison-panel {
+  grid-column: 1 / -1;
+}
+.role-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.role-compare-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+.role-domain-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.role-impact-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.role-impact-summary article {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px;
+  display: grid;
+  gap: 3px;
+}
+.role-impact-summary strong {
+  font-size: 1.3rem;
+}
+.role-impact-summary span,
+.role-assignee-list summary {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+.capability-change-preview {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+}
+.capability-added {
+  border-color: #167a34;
+}
+.capability-removed {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.capability-domain {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.capability-domain h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.capability-risk {
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.72rem;
+}
+.capability-risk-destructive,
+.capability-risk-support,
+.capability-risk-token,
+.capability-risk-cross-tenant {
+  color: var(--danger);
+  border-color: var(--danger);
+}
 .context-drawer-actions,
 .context-related-list {
   display: flex;

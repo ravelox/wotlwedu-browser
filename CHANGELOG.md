@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.44 - 2026-05-19
+- Add role comparison, capability domain grouping, assigned-people impact
+  counts, and changed-capability previews for role editing.
+
 ## 0.1.43 - 2026-05-19
 - Add a unified Audit Explorer page with auth, support, and public-poll audit
   timelines, shared filters, expandable raw metadata, and CSV/JSON export.

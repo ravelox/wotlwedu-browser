@@ -82,6 +82,27 @@ function downloadJson(filename, value) {
   URL.revokeObjectURL(url);
 }
 
+function capabilityDomain(capability) {
+  const text = `${capability?.name || ""} ${capability?.id || ""}`.toLowerCase();
+  if (text.includes("auth") || text.includes("login") || text.includes("invite") || text.includes("session")) return "Auth";
+  if (text.includes("organization") || text.includes("workgroup") || text.includes("space") || text.includes("tenant")) return "Tenant";
+  if (text.includes("support") || text.includes("audit") || text.includes("ownership")) return "Support";
+  if (text.includes("public") || text.includes("abuse") || text.includes("moderation")) return "Public Poll Moderation";
+  if (text.includes("backup") || text.includes("restore")) return "Backup";
+  if (text.includes("config") || text.includes("health") || text.includes("metric")) return "Configuration";
+  if (text.includes("token")) return "Token Lab";
+  return "Resource CRUD";
+}
+
+function capabilityRisk(capability) {
+  const text = `${capability?.name || ""} ${capability?.id || ""}`.toLowerCase();
+  if (text.includes("delete") || text.includes("restore") || text.includes("backup")) return "destructive";
+  if (text.includes("support") || text.includes("audit") || text.includes("ownership")) return "support";
+  if (text.includes("token")) return "token";
+  if (text.includes("organization") || text.includes("tenant") || text.includes("global")) return "cross-tenant";
+  return "";
+}
+
 export default function ResourcePage({ api, definition, session, scope, onGlobalModeUsed }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -98,6 +119,10 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   const [initialCapabilityIds, setInitialCapabilityIds] = useState([]);
   const [selectedRoleProtected, setSelectedRoleProtected] = useState(false);
   const [showAllRoleCapabilities, setShowAllRoleCapabilities] = useState(false);
+  const [assignedRoleUsers, setAssignedRoleUsers] = useState([]);
+  const [compareRoleIds, setCompareRoleIds] = useState([]);
+  const [roleComparison, setRoleComparison] = useState([]);
+  const [roleCompareLoading, setRoleCompareLoading] = useState(false);
   const [scopedOrganizationId, setScopedOrganizationId] = useState(null);
   const [categoryOwnerId, setCategoryOwnerId] = useState(session?.userId || "");
   const [loading, setLoading] = useState(false);
@@ -250,6 +275,32 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
     return allCapabilities.filter((cap) => cap?.id && selectedSet.has(cap.id));
   }, [allCapabilities, isRoleResource, selectedCapabilityIds, showAllRoleCapabilities]);
 
+  const capabilityLookup = useMemo(() => {
+    const map = new Map();
+    allCapabilities.forEach((capability) => {
+      if (capability?.id) map.set(capability.id, capability);
+    });
+    return map;
+  }, [allCapabilities]);
+
+  const capabilityChanges = useMemo(() => {
+    const nextSet = new Set(selectedCapabilityIds);
+    const currentSet = new Set(initialCapabilityIds);
+    return {
+      added: selectedCapabilityIds.filter((capId) => !currentSet.has(capId)),
+      removed: initialCapabilityIds.filter((capId) => !nextSet.has(capId)),
+    };
+  }, [initialCapabilityIds, selectedCapabilityIds]);
+
+  const groupedVisibleCapabilities = useMemo(() => {
+    return visibleCapabilities.reduce((groups, capability) => {
+      const domain = capabilityDomain(capability);
+      if (!groups[domain]) groups[domain] = [];
+      groups[domain].push(capability);
+      return groups;
+    }, {});
+  }, [visibleCapabilities]);
+
   const newRecord = useMemo(() => {
     const next = {};
     for (const [key, , type] of fields) {
@@ -329,7 +380,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
     setError("");
     try {
       const response = await api.get(`${definition.path}/${id}`, {
-        params: isRoleResource ? { detail: "capability" } : undefined,
+        params: isRoleResource ? { detail: "capability,user" } : undefined,
       });
       if (response.status >= 400) throw toApiError(response, `Failed to load ${definition.title} item`);
       const entity = response.data?.data?.[definition.singleKey] || response.data?.[definition.singleKey];
@@ -346,6 +397,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
           .filter((capId) => typeof capId === "string" && capId.length > 0);
         setSelectedCapabilityIds(capIds);
         setInitialCapabilityIds(capIds);
+        setAssignedRoleUsers(Array.isArray(entity.users) ? entity.users : []);
       }
 
       const ownerId =
@@ -433,6 +485,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
       setInitialCapabilityIds([]);
       setSelectedRoleProtected(false);
       setShowAllRoleCapabilities(false);
+      setAssignedRoleUsers([]);
     }
     setSuccess("");
     setError("");
@@ -483,6 +536,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
         setInitialCapabilityIds([]);
         setSelectedRoleProtected(false);
         setShowAllRoleCapabilities(false);
+        setAssignedRoleUsers([]);
       }
       await listRows(selectedId ? page : 1);
     } catch (err) {
@@ -524,6 +578,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
         setInitialCapabilityIds([]);
         setSelectedRoleProtected(false);
         setShowAllRoleCapabilities(false);
+        setAssignedRoleUsers([]);
       }
       if (targetId === inspectedId) {
         setInspectedId(null);
@@ -610,6 +665,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
       setInitialCapabilityIds([]);
       setSelectedRoleProtected(false);
       setShowAllRoleCapabilities(false);
+      setAssignedRoleUsers([]);
     }
   }, [newRecord, isCategoryResource, isRoleResource, session?.userId]);
 
@@ -959,6 +1015,42 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
       protectedRole: isRoleResource && isProtectedRole(record),
       impact: "The selected record will be deleted from production data.",
     });
+  }
+
+  function toggleCompareRole(roleId) {
+    if (!roleId) return;
+    setCompareRoleIds((current) =>
+      current.includes(roleId)
+        ? current.filter((id) => id !== roleId)
+        : current.length >= 4
+          ? [...current.slice(1), roleId]
+          : [...current, roleId]
+    );
+  }
+
+  async function loadRoleComparison() {
+    if (!compareRoleIds.length) {
+      setError("Select roles to compare first.");
+      return;
+    }
+    setRoleCompareLoading(true);
+    setError("");
+    try {
+      const responses = await Promise.all(
+        compareRoleIds.map((roleId) =>
+          api.get(`/role/${roleId}`, { params: { detail: "capability,user" } })
+        )
+      );
+      const details = responses
+        .filter((response) => response.status < 400)
+        .map((response) => response.data?.data?.role || response.data?.role)
+        .filter(Boolean);
+      setRoleComparison(details);
+    } catch (err) {
+      setError(err.message || "Failed to compare roles");
+    } finally {
+      setRoleCompareLoading(false);
+    }
   }
 
   function confirmActionWithReason(reason) {
@@ -1454,6 +1546,18 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                           >
                             Export JSON
                           </button>
+                          {isRoleResource ? (
+                            <button
+                              className="row-action-button"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                toggleCompareRole(row[idField]);
+                              }}
+                            >
+                              {compareRoleIds.includes(row[idField]) ? "Uncompare" : "Compare"}
+                            </button>
+                          ) : null}
                           {definition.deletable !== false ? (
                             <button
                               className="row-action-button row-action-danger"
@@ -1487,6 +1591,59 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
           </div>
         )}
       </div>
+
+      {isRoleResource ? (
+        <section className="panel role-comparison-panel">
+          <div className="panel-header">
+            <div>
+              <h3>Role Comparison</h3>
+              <p className="muted-copy">Select up to four roles from row actions to compare capabilities and assigned people.</p>
+            </div>
+            <div className="actions">
+              <button className="btn btn-secondary" type="button" onClick={loadRoleComparison} disabled={!compareRoleIds.length || roleCompareLoading}>
+                {roleCompareLoading ? "Comparing..." : "Compare Roles"}
+              </button>
+              <button className="btn btn-secondary" type="button" onClick={() => { setCompareRoleIds([]); setRoleComparison([]); }}>
+                Clear
+              </button>
+            </div>
+          </div>
+          <div className="filter-chip-row">
+            {compareRoleIds.length ? compareRoleIds.map((roleId) => (
+              <button className="filter-chip" type="button" key={roleId} onClick={() => toggleCompareRole(roleId)}>
+                {roleId} ×
+              </button>
+            )) : <span className="muted-copy">No roles selected for comparison.</span>}
+          </div>
+          {roleComparison.length ? (
+            <div className="role-compare-grid">
+              {roleComparison.map((role) => {
+                const capNames = (role.capabilities || []).map((capability) => capability.name || capability.id).filter(Boolean);
+                return (
+                  <article className="role-compare-card" key={role.id}>
+                    <div className="invite-card-header">
+                      <strong>{role.name || role.id}</strong>
+                      {isProtectedRole(role) ? <span className="role-protected-badge">Protected</span> : <span className="role-standard-badge">Editable</span>}
+                    </div>
+                    <p className="muted-copy">{role.description || "No description"}</p>
+                    <div className="metric-small">{capNames.length} capabilities</div>
+                    <p className="muted-copy">{(role.users || []).length} assigned people</p>
+                    <div className="role-domain-list">
+                      {Object.entries((role.capabilities || []).reduce((groups, capability) => {
+                        const domain = capabilityDomain(capability);
+                        groups[domain] = (groups[domain] || 0) + 1;
+                        return groups;
+                      }, {})).map(([domain, count]) => (
+                        <span className="filter-chip" key={domain}>{domain}: {count}</span>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {inspectedRecord ? (
         <aside className="panel context-drawer" aria-label="Read-only record details">
@@ -1561,7 +1718,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
             {isRoleResource && selectedId && selectedRoleProtected && (
               <p className="role-protected-note">
                 <span className="role-protected-badge">Protected</span>
-                This role is protected from deletion.
+                This role is protected from deletion. Name, description, and capability membership can still be reviewed and edited by admins with role edit access.
               </p>
             )}
           </div>
@@ -1661,6 +1818,48 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
 
           {isRoleResource && (
             <div className="field field-full">
+              <div className="role-impact-summary">
+                <article>
+                  <strong>{assignedRoleUsers.length}</strong>
+                  <span>assigned people</span>
+                </article>
+                <article>
+                  <strong>{capabilityChanges.added.length}</strong>
+                  <span>capabilities to add</span>
+                </article>
+                <article>
+                  <strong>{capabilityChanges.removed.length}</strong>
+                  <span>capabilities to remove</span>
+                </article>
+              </div>
+              {assignedRoleUsers.length ? (
+                <details className="role-assignee-list">
+                  <summary>People affected by this role</summary>
+                  <div className="filter-chip-row">
+                    {assignedRoleUsers.slice(0, 20).map((user) => (
+                      <span className="filter-chip" key={user.id}>{user.alias || user.email || user.id}</span>
+                    ))}
+                    {assignedRoleUsers.length > 20 ? <span className="filter-chip">+{assignedRoleUsers.length - 20} more</span> : null}
+                  </div>
+                </details>
+              ) : null}
+              {(capabilityChanges.added.length || capabilityChanges.removed.length) ? (
+                <div className="capability-change-preview">
+                  <strong>Changed capabilities preview</strong>
+                  <div className="filter-chip-row">
+                    {capabilityChanges.added.map((capId) => (
+                      <span className="filter-chip capability-added" key={`add-${capId}`}>
+                        + {capabilityLookup.get(capId)?.name || capId}
+                      </span>
+                    ))}
+                    {capabilityChanges.removed.map((capId) => (
+                      <span className="filter-chip capability-removed" key={`remove-${capId}`}>
+                        - {capabilityLookup.get(capId)?.name || capId}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="capability-picker-header">
                 <span>Capabilities ({selectedCapabilityIds.length})</span>
                 <div className="segmented-control" aria-label="Capability list display">
@@ -1694,29 +1893,36 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                 </button>
               </form>
               <div className="capability-picker">
-                {visibleCapabilities.map((cap) => {
-                  const capId = cap?.id;
-                  if (!capId) return null;
-                  const checked = selectedCapabilityIds.includes(capId);
-                  return (
-                    <label key={capId} className="capability-option">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          const isChecked = e.target.checked;
-                          setSelectedCapabilityIds((prev) => {
-                            const next = new Set(prev);
-                            if (isChecked) next.add(capId);
-                            else next.delete(capId);
-                            return [...next];
-                          });
-                        }}
-                      />
-                      <span>{cap.name || capId}</span>
-                    </label>
-                  );
-                })}
+                {Object.entries(groupedVisibleCapabilities).map(([domain, capabilities]) => (
+                  <section className="capability-domain" key={domain}>
+                    <h4>{domain}</h4>
+                    {capabilities.map((cap) => {
+                      const capId = cap?.id;
+                      if (!capId) return null;
+                      const checked = selectedCapabilityIds.includes(capId);
+                      const risk = capabilityRisk(cap);
+                      return (
+                        <label key={capId} className="capability-option">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              setSelectedCapabilityIds((prev) => {
+                                const next = new Set(prev);
+                                if (isChecked) next.add(capId);
+                                else next.delete(capId);
+                                return [...next];
+                              });
+                            }}
+                          />
+                          <span>{cap.name || capId}</span>
+                          {risk ? <em className={`capability-risk capability-risk-${risk}`}>{risk}</em> : null}
+                        </label>
+                      );
+                    })}
+                  </section>
+                ))}
                 {visibleCapabilities.length === 0 && (
                   <div className="capability-empty">
                     {showAllRoleCapabilities
