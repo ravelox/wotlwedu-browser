@@ -7,6 +7,7 @@ import ResourcePage from "./pages/ResourcePage";
 import TokenLabPage from "./pages/TokenLabPage";
 import ProfilePage from "./pages/ProfilePage";
 import SupportPage from "./pages/SupportPage";
+import AuditExplorerPage from "./pages/AuditExplorerPage";
 import ConfigPage from "./pages/ConfigPage";
 import BackupPage from "./pages/BackupPage";
 import { createApi } from "./lib/api";
@@ -263,6 +264,18 @@ export default function App() {
                       globalModeExpiresAt={globalModeExpiresAt}
                       onChangeGlobalModeConfirmed={setGlobalModeConfirmed}
                       onGlobalModeUsed={resetGlobalModeAfterAction}
+                    />
+                  }
+                />
+                <Route
+                  path="/audit"
+                  element={
+                    <AuditExplorerPage
+                      api={api}
+                      session={session}
+                      initialOrganizationId={activeOrganizationId}
+                      globalModeConfirmed={globalModeConfirmed}
+                      globalModeExpiresAt={globalModeExpiresAt}
                     />
                   }
                 />

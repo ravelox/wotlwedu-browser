@@ -36,6 +36,7 @@ function buildStaticResults(session) {
     { type: "Action", title: "Inspect user", route: "/support", detail: "Open support investigation", visible: admin },
     { type: "Action", title: "Revoke sessions", route: "/support", detail: "Support session tools", visible: admin },
     { type: "Action", title: "Export audit", route: "/support", detail: "Auth and public poll CSV exports", visible: admin },
+    { type: "Page", title: "Audit Explorer", route: "/audit", detail: "Unified auth, support, and public poll investigation timeline", visible: admin },
     { type: "Action", title: "Backup space", route: "/backup", detail: "Scoped backup and restore", visible: admin },
     { type: "Action", title: "Change password", route: "/support", detail: "Send password reset", visible: admin },
     { type: "Page", title: "Configuration", route: "/configuration", detail: "Runtime config", visible: session?.systemAdmin },

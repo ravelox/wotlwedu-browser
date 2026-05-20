@@ -43,6 +43,7 @@ export default function Shell({
   const navItems = [
     ...NAV_ITEMS,
     ...((session?.systemAdmin || session?.organizationAdmin) ? [["Support", "/support"]] : []),
+    ...((session?.systemAdmin || session?.organizationAdmin) ? [["Audit Explorer", "/audit"]] : []),
     ...((session?.systemAdmin || session?.organizationAdmin) ? [["Backup", "/backup"]] : []),
     ...(session?.systemAdmin ? [["Configuration", "/configuration"]] : []),
     ...(session?.systemAdmin ? [["Token Lab", "/token-lab"]] : []),

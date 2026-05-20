@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.43 - 2026-05-19
+- Add a unified Audit Explorer page with auth, support, and public-poll audit
+  timelines, shared filters, expandable raw metadata, and CSV/JSON export.
+
 ## 0.1.42 - 2026-05-19
 - Add visible resource-table bulk selection with scoped bulk export, guarded
   delete, people deactivation, category assignment, and per-row result details.

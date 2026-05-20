@@ -403,6 +403,50 @@ kbd {
   display: grid;
   gap: 14px;
 }
+.audit-explorer-page {
+  display: grid;
+  gap: 14px;
+}
+.audit-tabs {
+  margin: 10px 0 14px;
+}
+.audit-filter-grid {
+  align-items: end;
+}
+.audit-explorer-table {
+  min-width: 1180px;
+}
+.audit-explorer-table th:nth-child(1),
+.audit-explorer-table td:nth-child(1) {
+  width: 180px;
+}
+.audit-explorer-table th:nth-child(8),
+.audit-explorer-table td:nth-child(8) {
+  white-space: normal;
+}
+.audit-detail-row td {
+  white-space: normal;
+  background: var(--panel);
+}
+.risk-chip {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.risk-normal {
+  color: var(--muted);
+}
+.risk-medium {
+  color: var(--text);
+}
+.risk-elevated,
+.risk-high {
+  color: var(--danger);
+  border-color: var(--danger);
+}
 .backup-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
