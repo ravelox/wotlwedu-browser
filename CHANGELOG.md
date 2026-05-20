@@ -4,6 +4,10 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.42 - 2026-05-19
+- Add visible resource-table bulk selection with scoped bulk export, guarded
+  delete, people deactivation, category assignment, and per-row result details.
+
 ## 0.1.41 - 2026-05-19
 - Add inline resource row actions and a read-only inspect drawer with related
   resource links and JSON export.

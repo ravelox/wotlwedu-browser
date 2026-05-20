@@ -119,6 +119,9 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   const [visibleColumnKeys, setVisibleColumnKeys] = useState([]);
   const [density, setDensity] = useState("comfortable");
   const [copyMessage, setCopyMessage] = useState("");
+  const [selectedRowIds, setSelectedRowIds] = useState([]);
+  const [bulkCategoryId, setBulkCategoryId] = useState("");
+  const [bulkResults, setBulkResults] = useState([]);
   const requestedId = searchParams.get("id") || "";
 
   const fields = definition.fields;
@@ -132,6 +135,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   const isPeopleResource = definition.path === "/person";
   const isPollResource = definition.path === "/poll";
   const hasCategoryField = fields.some(([key]) => key === "categoryId");
+  const canBulkAssignCategory = hasCategoryField && definition.path !== "/category";
   const canChooseCategoryOwner = session?.systemAdmin === true;
   const hasLoadedRows = total > 0 || rows.length > 0;
   const uploadDisabledReason =
@@ -678,6 +682,18 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
     return next;
   }, [rows, sortDirection, sortKey]);
 
+  const selectedRowSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+  const selectedRows = useMemo(
+    () => sortedRows.filter((row) => selectedRowSet.has(row[idField])),
+    [idField, selectedRowSet, sortedRows]
+  );
+  const visibleRowIds = useMemo(
+    () => sortedRows.map((row) => row?.[idField]).filter(Boolean),
+    [idField, sortedRows]
+  );
+  const allVisibleSelected =
+    visibleRowIds.length > 0 && visibleRowIds.every((rowId) => selectedRowSet.has(rowId));
+
   function toggleSort(key) {
     if (sortKey === key) {
       setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
@@ -794,6 +810,122 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
     });
   }
 
+  function toggleRowSelection(id, checked) {
+    if (!id) return;
+    setSelectedRowIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return [...next];
+    });
+  }
+
+  function selectVisibleRows() {
+    setSelectedRowIds((current) => [...new Set([...current, ...visibleRowIds])]);
+  }
+
+  function clearSelectedRows() {
+    setSelectedRowIds([]);
+    setBulkResults([]);
+  }
+
+  function payloadForRow(row, overrides = {}) {
+    const payload = {};
+    for (const [key, , type] of fields) {
+      payload[key] = coerceValue(type, Object.prototype.hasOwnProperty.call(overrides, key) ? overrides[key] : row[key]);
+    }
+    return payload;
+  }
+
+  function requestBulkAction(kind) {
+    if (!selectedRows.length) {
+      setError("Select at least one visible row before running a bulk action.");
+      return;
+    }
+    if (kind === "bulk-category" && !bulkCategoryId) {
+      setError("Choose a category before assigning selected records.");
+      return;
+    }
+    const actionMeta = {
+      "bulk-delete": {
+        title: `Delete ${selectedRows.length} selected ${definition.title.toLowerCase()}`,
+        impact: "Each selected non-protected record will be deleted. Results are reported per row.",
+      },
+      "bulk-deactivate": {
+        title: `Deactivate ${selectedRows.length} selected people`,
+        impact: "Each selected person will be saved with Active set to false. Results are reported per row.",
+      },
+      "bulk-category": {
+        title: `Assign category to ${selectedRows.length} selected records`,
+        impact: `Each selected record will be saved with category ${bulkCategoryId}. Results are reported per row.`,
+      },
+    }[kind];
+    setConfirmAction({
+      kind,
+      title: actionMeta.title,
+      tenant: tenantLabel,
+      target: `${selectedRows.length} selected row${selectedRows.length === 1 ? "" : "s"}`,
+      impact: actionMeta.impact,
+      targets: selectedRows,
+      categoryId: bulkCategoryId,
+    });
+  }
+
+  async function executeBulkAction(action, reason) {
+    const targets = Array.isArray(action?.targets) ? action.targets : [];
+    if (!targets.length) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    const results = [];
+    try {
+      for (const row of targets) {
+        const rowId = row?.[idField];
+        if (!rowId) continue;
+        if (action.kind === "bulk-delete" && isRoleResource && isProtectedRole(row)) {
+          results.push({ id: rowId, status: "skipped", message: "Protected role" });
+          continue;
+        }
+        try {
+          let response;
+          if (action.kind === "bulk-delete") {
+            response = await api.delete(`${definition.path}/${rowId}`, { data: { reason } });
+          } else if (action.kind === "bulk-deactivate") {
+            const detailResponse = await api.get(`${definition.path}/${rowId}`);
+            const entity = detailResponse.data?.data?.[definition.singleKey] || detailResponse.data?.[definition.singleKey] || row;
+            response = await api.put(`${definition.path}/${rowId}`, payloadForRow(entity, { active: false }));
+          } else if (action.kind === "bulk-category") {
+            const detailResponse = await api.get(`${definition.path}/${rowId}`);
+            const entity = detailResponse.data?.data?.[definition.singleKey] || detailResponse.data?.[definition.singleKey] || row;
+            response = await api.put(`${definition.path}/${rowId}`, payloadForRow(entity, { categoryId: action.categoryId }));
+          }
+          if (response?.status >= 400) {
+            throw toApiError(response, `Failed to update ${rowId}`);
+          }
+          results.push({ id: rowId, status: "success", message: "Applied" });
+        } catch (err) {
+          results.push({ id: rowId, status: "failed", message: err.message || "Failed" });
+        }
+      }
+
+      const successIds = new Set(results.filter((result) => result.status === "success").map((result) => result.id));
+      setSelectedRowIds((current) => current.filter((rowId) => !successIds.has(rowId)));
+      setBulkResults(results);
+      if (successIds.size > 0 && !scope?.activeOrganizationId && scope?.globalModeConfirmed) {
+        onGlobalModeUsed?.();
+      }
+      const failedCount = results.filter((result) => result.status === "failed").length;
+      const skippedCount = results.filter((result) => result.status === "skipped").length;
+      setSuccess(
+        `Bulk action complete: ${successIds.size} applied, ${failedCount} failed, ${skippedCount} skipped.`
+      );
+      await listRows(page);
+    } finally {
+      setSaving(false);
+      setConfirmAction(null);
+    }
+  }
+
   async function copyText(value, label = "value") {
     if (!value) return;
     try {
@@ -827,6 +959,14 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
       protectedRole: isRoleResource && isProtectedRole(record),
       impact: "The selected record will be deleted from production data.",
     });
+  }
+
+  function confirmActionWithReason(reason) {
+    if (confirmAction?.kind?.startsWith("bulk-")) {
+      executeBulkAction(confirmAction, reason);
+      return;
+    }
+    executeDelete(reason);
   }
 
   function pickerConfig(type) {
@@ -1036,6 +1176,82 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
           {scope?.globalModeConfirmed ? <span className="danger-text">Global write confirmation resets after destructive actions</span> : null}
         </div>
 
+        <div className="bulk-toolbar" aria-label="Bulk selection and actions">
+          <div className="bulk-summary">
+            <strong>{selectedRows.length}</strong>
+            <span>selected on this loaded page</span>
+            <span>Tenant: {tenantLabel}</span>
+          </div>
+          <div className="bulk-actions">
+            <button className="btn btn-secondary" type="button" onClick={selectVisibleRows} disabled={!visibleRowIds.length}>
+              Select Visible
+            </button>
+            <button className="btn btn-secondary" type="button" onClick={clearSelectedRows} disabled={!selectedRowIds.length}>
+              Clear Selection
+            </button>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              disabled={!selectedRows.length}
+              onClick={() => downloadJson(`${resourceKey}-selected-${Date.now()}.json`, selectedRows)}
+            >
+              Export Selected JSON
+            </button>
+            {isPeopleResource ? (
+              <button
+                className="btn btn-secondary"
+                type="button"
+                disabled={!selectedRows.length || saving}
+                onClick={() => requestBulkAction("bulk-deactivate")}
+              >
+                Deactivate Selected
+              </button>
+            ) : null}
+            {canBulkAssignCategory ? (
+              <div className="bulk-category-action">
+                <SearchPicker
+                  api={api}
+                  path="/category"
+                  listKey="categories"
+                  value={bulkCategoryId}
+                  onChange={setBulkCategoryId}
+                  params={canChooseCategoryOwner && categoryOwnerId ? { creator: categoryOwnerId } : {}}
+                  placeholder="Bulk category"
+                />
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  disabled={!selectedRows.length || !bulkCategoryId || saving}
+                  onClick={() => requestBulkAction("bulk-category")}
+                >
+                  Assign Category
+                </button>
+              </div>
+            ) : null}
+            {definition.deletable !== false ? (
+              <button
+                className="btn btn-danger"
+                type="button"
+                disabled={!selectedRows.length || saving}
+                onClick={() => requestBulkAction("bulk-delete")}
+              >
+                Delete Selected
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {bulkResults.length ? (
+          <div className="bulk-results" aria-label="Bulk action results">
+            {bulkResults.map((result) => (
+              <div className={`bulk-result bulk-result-${result.status}`} key={`${result.id}-${result.status}`}>
+                <strong>{result.id}</strong>
+                <span>{result.status}</span>
+                <span>{result.message}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <div className="view-toolbar">
           <label className="field view-select-field">
             <span>View</span>
@@ -1122,6 +1338,18 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                 <thead>
                   <tr>
                     <th>
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        disabled={!visibleRowIds.length}
+                        aria-label="Select all visible rows"
+                        onChange={(event) => {
+                          if (event.target.checked) selectVisibleRows();
+                          else setSelectedRowIds((current) => current.filter((rowId) => !visibleRowIds.includes(rowId)));
+                        }}
+                      />
+                    </th>
+                    <th>
                       <button className="table-sort" type="button" onClick={() => toggleSort(idField)}>
                         ID{sortKey === idField ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
                       </button>
@@ -1140,9 +1368,21 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                   {sortedRows.map((row) => (
                     <tr
                       key={row[idField]}
-                      className={selectedId === row[idField] ? "row-selected" : ""}
+                      className={[
+                        selectedId === row[idField] ? "row-selected" : "",
+                        selectedRowSet.has(row[idField]) ? "row-bulk-selected" : "",
+                      ].filter(Boolean).join(" ")}
                       onClick={() => loadSingle(row[idField])}
                     >
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedRowSet.has(row[idField])}
+                          aria-label={`Select ${row[idField]}`}
+                          onChange={(event) => toggleRowSelection(row[idField], event.target.checked)}
+                          onClick={(event) => event.stopPropagation()}
+                        />
+                      </td>
                       <td>
                         <div className="id-cell">
                           <span>{row[idField]}</span>
@@ -1519,7 +1759,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
         action={confirmAction}
         busy={saving}
         onCancel={() => setConfirmAction(null)}
-        onConfirm={executeDelete}
+        onConfirm={confirmActionWithReason}
       />
     </div>
   );
