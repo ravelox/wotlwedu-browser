@@ -10,6 +10,7 @@ export const RESOURCE_DEFS = {
       ["description", "Description", "textarea"],
       ["active", "Active", "checkbox"],
     ],
+    tableColumns: ["name", "active", "description"],
   },
   workgroups: {
     title: "Spaces",
@@ -24,6 +25,7 @@ export const RESOURCE_DEFS = {
       ["categoryId", "Category", "category-combobox"],
       ["listType", "List Type", "number"],
     ],
+    tableColumns: ["name", "organizationId", "categoryId", "listType"],
   },
   groups: {
     title: "Circles",
@@ -37,6 +39,7 @@ export const RESOURCE_DEFS = {
       ["categoryId", "Category", "category-combobox"],
       ["listType", "List Type", "number"],
     ],
+    tableColumns: ["name", "categoryId", "listType"],
   },
   users: {
     title: "People",
@@ -58,6 +61,14 @@ export const RESOURCE_DEFS = {
       ["workgroupAdmin", "Space Admin", "checkbox"],
       ["adminWorkgroupId", "Admin Space", "workgroup-combobox"],
     ],
+    tableColumns: ["firstName", "lastName", "email", "active", "verified", "systemAdmin", "organizationAdmin", "workgroupAdmin"],
+    savedViews: [
+      { id: "active", name: "Active", filters: { active: "true" }, columns: ["firstName", "lastName", "email", "verified"] },
+      { id: "unverified", name: "Unverified", filters: { active: "true", verified: "false" }, columns: ["firstName", "lastName", "email", "active"] },
+      { id: "admins", name: "Admins", filters: { adminRole: "organizationAdmin" }, columns: ["firstName", "lastName", "email", "organizationAdmin", "workgroupAdmin"] },
+      { id: "disabled", name: "Disabled", filters: { active: "false" }, columns: ["firstName", "lastName", "email", "verified"] },
+      { id: "space-admins", name: "Space Admins", filters: { adminRole: "workgroupAdmin" }, columns: ["firstName", "lastName", "email", "adminWorkgroupId"] },
+    ],
   },
   roles: {
     title: "Roles",
@@ -69,6 +80,11 @@ export const RESOURCE_DEFS = {
       ["name", "Name", "text"],
       ["description", "Description", "textarea"],
     ],
+    tableColumns: ["name", "description", "protected"],
+    savedViews: [
+      { id: "protected", name: "Protected", columns: ["name", "protected", "description"] },
+      { id: "custom", name: "Custom", columns: ["name", "description", "protected"] },
+    ],
   },
   capabilities: {
     title: "Capabilities",
@@ -77,6 +93,7 @@ export const RESOURCE_DEFS = {
     singleKey: "capability",
     idField: "id",
     fields: [["name", "Name", "text"]],
+    tableColumns: ["name"],
   },
   categories: {
     title: "Categories",
@@ -89,6 +106,7 @@ export const RESOURCE_DEFS = {
       ["description", "Description", "textarea"],
       ["creator", "Owner Person", "user-combobox"],
     ],
+    tableColumns: ["name", "creator", "description"],
   },
   items: {
     title: "Items",
@@ -106,6 +124,7 @@ export const RESOURCE_DEFS = {
       ["categoryId", "Category", "category-combobox"],
       ["imageId", "Picture", "image-combobox"],
     ],
+    tableColumns: ["name", "workgroupId", "categoryId", "url", "location"],
   },
   images: {
     title: "Pictures",
@@ -120,6 +139,7 @@ export const RESOURCE_DEFS = {
       ["description", "Description", "textarea"],
       ["categoryId", "Category", "category-combobox"],
     ],
+    tableColumns: ["name", "workgroupId", "categoryId", "description"],
   },
   lists: {
     title: "Lists",
@@ -134,6 +154,7 @@ export const RESOURCE_DEFS = {
       ["description", "Description", "textarea"],
       ["categoryId", "Category", "category-combobox"],
     ],
+    tableColumns: ["name", "workgroupId", "categoryId", "description"],
   },
   elections: {
     title: "Polls",
@@ -153,6 +174,14 @@ export const RESOURCE_DEFS = {
       ["electionType", "Poll Type", "number"],
       ["expiration", "Expiration (ISO)", "text"],
     ],
+    tableColumns: ["name", "workgroupId", "expiration", "publicAccessMode", "abuseStatus", "electionType"],
+    savedViews: [
+      { id: "active", name: "Active", filters: { pollStatus: "active" }, columns: ["name", "workgroupId", "expiration", "publicAccessMode"] },
+      { id: "expired", name: "Expired", filters: { pollStatus: "expired" }, columns: ["name", "workgroupId", "expiration", "abuseStatus"] },
+      { id: "public", name: "Public", filters: { publicStatus: "public" }, columns: ["name", "workgroupId", "publicAccessMode", "abuseStatus"] },
+      { id: "reported", name: "Reported", filters: { abuseStatus: "reported" }, columns: ["name", "workgroupId", "abuseStatus", "publicAccessMode"] },
+      { id: "recent", name: "Recently Created", columns: ["name", "workgroupId", "expiration", "electionType"] },
+    ],
   },
   votes: {
     title: "Votes",
@@ -167,6 +196,7 @@ export const RESOURCE_DEFS = {
       ["userId", "Person", "user-combobox"],
       ["statusId", "Status ID", "number"],
     ],
+    tableColumns: ["electionId", "itemId", "userId", "statusId"],
   },
   notifications: {
     title: "Notifications",
@@ -182,6 +212,12 @@ export const RESOURCE_DEFS = {
       ["objectId", "Object ID", "text"],
       ["statusId", "Status ID", "number"],
     ],
+    tableColumns: ["type", "userId", "statusId", "objectId", "text"],
+    savedViews: [
+      { id: "unread", name: "Unread", filter: "unread", columns: ["type", "userId", "statusId", "text"] },
+      { id: "failed-delivery", name: "Failed Delivery", filter: "failed", columns: ["type", "userId", "statusId", "text"] },
+      { id: "recent-system", name: "Recent System", filter: "system", columns: ["type", "userId", "objectId", "text"] },
+    ],
   },
   preferences: {
     title: "Preferences",
@@ -193,5 +229,6 @@ export const RESOURCE_DEFS = {
       ["name", "Name", "text"],
       ["value", "Value", "textarea"],
     ],
+    tableColumns: ["name", "value"],
   },
 };

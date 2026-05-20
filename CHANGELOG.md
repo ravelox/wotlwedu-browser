@@ -4,6 +4,12 @@ This project follows a lightweight changelog format inspired by "Keep a Changelo
 
 ## Unreleased
 
+## 0.1.40 - 2026-05-19
+- Add saved resource views with local custom view persistence for common admin
+  support tasks.
+- Add configurable resource and audit-table columns, density preferences, and
+  copyable ID controls.
+
 ## 0.1.39 - 2026-05-19
 - Add structured People and Poll resource filters with visible removable filter chips.
 - Add structured Support Auth Audit and Public Poll Abuse filters, including date ranges and matching CSV export filters.

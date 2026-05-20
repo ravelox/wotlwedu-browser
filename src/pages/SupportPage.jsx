@@ -28,6 +28,63 @@ const OWNERSHIP_RESOURCES = [
   "elections",
 ];
 
+const AUTH_AUDIT_COLUMNS = [
+  { key: "eventType", label: "Event" },
+  { key: "outcome", label: "Outcome" },
+  { key: "createdAt", label: "Created" },
+  { key: "email", label: "Email" },
+  { key: "actorUserId", label: "Actor" },
+  { key: "targetUserId", label: "Affected Person" },
+  { key: "organizationId", label: "Organization" },
+  { key: "provider", label: "Provider" },
+  { key: "message", label: "Message" },
+];
+
+const PUBLIC_AUDIT_COLUMNS = [
+  { key: "eventType", label: "Event" },
+  { key: "outcome", label: "Outcome" },
+  { key: "createdAt", label: "Created" },
+  { key: "electionId", label: "Poll" },
+  { key: "actorType", label: "Actor Type" },
+  { key: "actorUserId", label: "Actor" },
+  { key: "organizationId", label: "Organization" },
+  { key: "abuseStatus", label: "Abuse Status" },
+  { key: "message", label: "Message" },
+];
+
+function readStoredJson(key, fallback) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredJson(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Audit table preferences are non-critical.
+  }
+}
+
+function normalizeColumns(columns, available, fallback) {
+  const keys = new Set(available.map((column) => column.key));
+  const next = (Array.isArray(columns) ? columns : []).filter((key) => keys.has(key));
+  return next.length ? next : fallback;
+}
+
+function formatAuditCell(audit, key) {
+  if (key === "createdAt") return audit.createdAt ? new Date(audit.createdAt).toLocaleString() : "";
+  if (key === "message") return formatAudit(audit);
+  if (key === "abuseStatus") return audit.election?.abuseStatus || "";
+  const value = audit[key];
+  if (value == null) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
 export default function SupportPage({
   api,
   session,
@@ -80,6 +137,11 @@ export default function SupportPage({
   const [confirmAction, setConfirmAction] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [authAuditColumns, setAuthAuditColumns] = useState([]);
+  const [publicAuditColumns, setPublicAuditColumns] = useState([]);
+  const [authAuditDensity, setAuthAuditDensity] = useState("comfortable");
+  const [publicAuditDensity, setPublicAuditDensity] = useState("comfortable");
+  const [auditCopyMessage, setAuditCopyMessage] = useState("");
 
   const canAccessSupport =
     session?.systemAdmin === true || session?.organizationAdmin === true;
@@ -93,6 +155,28 @@ export default function SupportPage({
   const isGlobalScope = session?.systemAdmin === true && !effectiveOrganizationId;
   const globalConfirmed = Boolean(globalModeConfirmed);
   const scopeParams = effectiveOrganizationId ? { organizationId: effectiveOrganizationId } : {};
+  const supportPreferenceKey = session?.userId || "anonymous";
+  const authAuditStorageKey = `wotlwedu_browser_audit_table:${supportPreferenceKey}:auth`;
+  const publicAuditStorageKey = `wotlwedu_browser_audit_table:${supportPreferenceKey}:public`;
+  const defaultAuthColumns = ["eventType", "outcome", "createdAt", "email", "organizationId"];
+  const defaultPublicColumns = ["eventType", "outcome", "createdAt", "electionId", "abuseStatus"];
+
+  useEffect(() => {
+    const authPrefs = readStoredJson(authAuditStorageKey, {});
+    const publicPrefs = readStoredJson(publicAuditStorageKey, {});
+    setAuthAuditColumns(normalizeColumns(authPrefs.columns, AUTH_AUDIT_COLUMNS, defaultAuthColumns));
+    setPublicAuditColumns(normalizeColumns(publicPrefs.columns, PUBLIC_AUDIT_COLUMNS, defaultPublicColumns));
+    setAuthAuditDensity(["comfortable", "compact", "audit"].includes(authPrefs.density) ? authPrefs.density : "comfortable");
+    setPublicAuditDensity(["comfortable", "compact", "audit"].includes(publicPrefs.density) ? publicPrefs.density : "comfortable");
+  }, [authAuditStorageKey, publicAuditStorageKey]);
+
+  useEffect(() => {
+    writeStoredJson(authAuditStorageKey, { columns: authAuditColumns, density: authAuditDensity });
+  }, [authAuditColumns, authAuditDensity, authAuditStorageKey]);
+
+  useEffect(() => {
+    writeStoredJson(publicAuditStorageKey, { columns: publicAuditColumns, density: publicAuditDensity });
+  }, [publicAuditColumns, publicAuditDensity, publicAuditStorageKey]);
 
   function requireSafeScope() {
     if (!canAccessSupport) return false;
@@ -105,6 +189,194 @@ export default function SupportPage({
       return false;
     }
     return true;
+  }
+
+  async function copyAuditValue(value, label) {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+      setAuditCopyMessage(`Copied ${label}`);
+      window.setTimeout(() => setAuditCopyMessage(""), 1800);
+    } catch {
+      setError(`Unable to copy ${label}.`);
+    }
+  }
+
+  function toggleAuditColumn(kind, key, checked) {
+    const update = kind === "auth" ? setAuthAuditColumns : setPublicAuditColumns;
+    update((current) => {
+      const without = current.filter((columnKey) => columnKey !== key);
+      if (!checked) return without.length ? without : current;
+      return [...without, key];
+    });
+  }
+
+  function renderAuditTableControls(kind) {
+    const isAuth = kind === "auth";
+    const available = isAuth ? AUTH_AUDIT_COLUMNS : PUBLIC_AUDIT_COLUMNS;
+    const columns = isAuth ? authAuditColumns : publicAuditColumns;
+    const densityValue = isAuth ? authAuditDensity : publicAuditDensity;
+    const setDensityValue = isAuth ? setAuthAuditDensity : setPublicAuditDensity;
+    const resetColumns = isAuth
+      ? () => setAuthAuditColumns(defaultAuthColumns)
+      : () => setPublicAuditColumns(defaultPublicColumns);
+    return (
+      <div className="audit-table-controls">
+        <div className="column-chooser compact-column-chooser">
+          {available.map((column) => (
+            <label key={`${kind}-${column.key}`} className="check-row">
+              <input
+                type="checkbox"
+                checked={columns.includes(column.key)}
+                onChange={(event) => toggleAuditColumn(kind, column.key, event.target.checked)}
+              />
+              <span>{column.label}</span>
+            </label>
+          ))}
+          <button className="btn btn-secondary" type="button" onClick={resetColumns}>
+            Reset Columns
+          </button>
+        </div>
+        <label className="field density-field">
+          <span>Density</span>
+          <select value={densityValue} onChange={(event) => setDensityValue(event.target.value)}>
+            <option value="comfortable">Comfortable</option>
+            <option value="compact">Compact</option>
+            <option value="audit">Audit</option>
+          </select>
+        </label>
+      </div>
+    );
+  }
+
+  function renderAuditTable(kind, auditsToRender) {
+    const isAuth = kind === "auth";
+    const available = isAuth ? AUTH_AUDIT_COLUMNS : PUBLIC_AUDIT_COLUMNS;
+    const selectedColumns = isAuth ? authAuditColumns : publicAuditColumns;
+    const densityValue = isAuth ? authAuditDensity : publicAuditDensity;
+    const columns = normalizeColumns(
+      selectedColumns,
+      available,
+      isAuth ? defaultAuthColumns : defaultPublicColumns
+    )
+      .map((key) => available.find((column) => column.key === key))
+      .filter(Boolean);
+
+    if (!auditsToRender.length) {
+      return (
+        <p style={{ color: "var(--muted)" }}>
+          {isAuth ? "No audit events matched the current filter." : "No public poll abuse events matched the current filter."}
+        </p>
+      );
+    }
+
+    return (
+      <div className="data-table-scroll audit-table-scroll">
+        <table className={`data-table audit-table data-table-${densityValue}`}>
+          <thead>
+            <tr>
+              <th>ID</th>
+              {columns.map((column) => (
+                <th key={`${kind}-head-${column.key}`}>{column.label}</th>
+              ))}
+              {!isAuth ? <th>Actions</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {auditsToRender.map((audit) => (
+              <tr key={audit.id}>
+                <td>
+                  <div className="id-cell">
+                    <span>{audit.id}</span>
+                    <button
+                      className="copy-id-button"
+                      type="button"
+                      title="Copy audit ID"
+                      onClick={() => copyAuditValue(audit.id, "audit ID")}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </td>
+                {columns.map((column) => (
+                  <td key={`${kind}-${audit.id}-${column.key}`}>{formatAuditCell(audit, column.key)}</td>
+                ))}
+                {!isAuth ? (
+                  <td>
+                    {audit.electionId ? (
+                      <div className="actions">
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => setConfirmAction({
+                            kind: "moderate",
+                            action: "lock",
+                            electionId: audit.electionId,
+                            title: "Lock public poll",
+                            tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                            target: audit.electionId,
+                            impact: "Public access remains visible but voting/invite activity is locked.",
+                          })}
+                          type="button"
+                        >
+                          Lock
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => setConfirmAction({
+                            kind: "moderate",
+                            action: "restore",
+                            electionId: audit.electionId,
+                            title: "Restore public poll",
+                            tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                            target: audit.electionId,
+                            impact: "The public poll is returned to normal trust status.",
+                          })}
+                          type="button"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => setConfirmAction({
+                            kind: "moderate",
+                            action: "remove_public_access",
+                            electionId: audit.electionId,
+                            title: "Remove public access",
+                            tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                            target: audit.electionId,
+                            impact: "The public link is disabled and anonymous access is removed.",
+                          })}
+                          type="button"
+                        >
+                          Remove Public Access
+                        </button>
+                        {(audit.metadata?.email || audit.metadata?.recipientEmail) ? (
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => setConfirmAction({
+                              kind: "suppress-recipient",
+                              email: audit.metadata?.email || audit.metadata?.recipientEmail,
+                              electionId: audit.electionId,
+                              title: "Suppress recipient",
+                              tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
+                              target: audit.metadata?.email || audit.metadata?.recipientEmail,
+                              impact: "Future public-poll invites to this email address will be blocked.",
+                            })}
+                            type="button"
+                          >
+                            Suppress Recipient
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   }
 
   async function loadSupportData(nextAuditPage = auditPage, nextPublicAuditPage = publicAuditPage) {
@@ -906,96 +1178,9 @@ export default function SupportPage({
             <div className="metric">{publicOverview?.totals?.uniqueElections ?? 0}</div>
           </article>
         </div>
-        <div className="invite-stack" style={{ marginTop: 12 }}>
-          {publicAudits.length ? (
-            publicAudits.map((audit) => (
-              <article className="invite-card" key={audit.id}>
-                <div className="invite-card-header">
-                  <div>
-                    <strong>{audit.election?.name || audit.electionId || audit.eventType}</strong>
-                    <p>{formatAudit(audit)}</p>
-                  </div>
-                  <span className={`status-chip status-${audit.outcome || "unknown"}`}>
-                    {audit.outcome || "unknown"}
-                  </span>
-                </div>
-                <div className="invite-meta">
-                  <span>{audit.eventType}</span>
-                  <span>{audit.createdAt ? new Date(audit.createdAt).toLocaleString() : "Unknown"}</span>
-                  {audit.election?.abuseStatus ? <span>{audit.election.abuseStatus}</span> : null}
-                </div>
-                {audit.electionId ? (
-                  <div className="actions">
-                    <button
-                      className="btn btn-danger"
-                      onClick={() => setConfirmAction({
-                        kind: "moderate",
-                        action: "lock",
-                        electionId: audit.electionId,
-                        title: "Lock public poll",
-                        tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
-                        target: audit.electionId,
-                        impact: "Public access remains visible but voting/invite activity is locked.",
-                      })}
-                      type="button"
-                    >
-                      Lock
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => setConfirmAction({
-                        kind: "moderate",
-                        action: "restore",
-                        electionId: audit.electionId,
-                        title: "Restore public poll",
-                        tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
-                        target: audit.electionId,
-                        impact: "The public poll is returned to normal trust status.",
-                      })}
-                      type="button"
-                    >
-                      Restore
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => setConfirmAction({
-                        kind: "moderate",
-                        action: "remove_public_access",
-                        electionId: audit.electionId,
-                        title: "Remove public access",
-                        tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
-                        target: audit.electionId,
-                        impact: "The public link is disabled and anonymous access is removed.",
-                      })}
-                      type="button"
-                    >
-                      Remove Public Access
-                    </button>
-                    {(audit.metadata?.email || audit.metadata?.recipientEmail) ? (
-                      <button
-                        className="btn btn-danger"
-                        onClick={() => setConfirmAction({
-                          kind: "suppress-recipient",
-                          email: audit.metadata?.email || audit.metadata?.recipientEmail,
-                          electionId: audit.electionId,
-                          title: "Suppress recipient",
-                          tenant: audit.workgroup?.organizationId || effectiveOrganizationId || "Global / cross-tenant",
-                          target: audit.metadata?.email || audit.metadata?.recipientEmail,
-                          impact: "Future public-poll invites to this email address will be blocked.",
-                        })}
-                        type="button"
-                      >
-                        Suppress Recipient
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </article>
-            ))
-          ) : (
-            <p style={{ color: "var(--muted)" }}>No public poll abuse events matched the current filter.</p>
-          )}
-        </div>
+        {renderAuditTableControls("public")}
+        {auditCopyMessage ? <p className="muted-line">{auditCopyMessage}</p> : null}
+        {renderAuditTable("public", publicAudits)}
         <PaginationControls
           page={publicAuditPage}
           itemsPerPage={25}
@@ -1006,30 +1191,9 @@ export default function SupportPage({
 
       <section className="panel">
         <h2>Support Audit Feed</h2>
-        <div className="invite-stack">
-          {audits.length ? (
-            audits.map((audit) => (
-              <article className="invite-card" key={audit.id}>
-                <div className="invite-card-header">
-                  <div>
-                    <strong>{audit.eventType}</strong>
-                    <p>{formatAudit(audit)}</p>
-                  </div>
-                  <span className={`status-chip status-${audit.outcome || "unknown"}`}>
-                    {audit.outcome || "unknown"}
-                  </span>
-                </div>
-                <small style={{ color: "var(--muted)" }}>
-                  {audit.createdAt ? new Date(audit.createdAt).toLocaleString() : "Unknown"}
-                  {audit.email ? ` • ${audit.email}` : ""}
-                  {audit.organizationId ? ` • ${audit.organizationId}` : ""}
-                </small>
-              </article>
-            ))
-          ) : (
-            <p style={{ color: "var(--muted)" }}>No audit events matched the current filter.</p>
-          )}
-        </div>
+        {renderAuditTableControls("auth")}
+        {auditCopyMessage ? <p className="muted-line">{auditCopyMessage}</p> : null}
+        {renderAuditTable("auth", audits)}
         <PaginationControls
           page={auditPage}
           itemsPerPage={25}

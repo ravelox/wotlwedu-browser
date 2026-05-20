@@ -25,6 +25,38 @@ function singularizeTitle(title) {
   return title;
 }
 
+function readStoredJson(key, fallback) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredJson(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Local preferences are non-critical; ignore private-mode quota failures.
+  }
+}
+
+function normalizeColumns(columns, availableColumns, fallbackColumns) {
+  const available = new Set(availableColumns.map((column) => column.key));
+  const next = (Array.isArray(columns) ? columns : [])
+    .filter((key) => key !== "id" && available.has(key));
+  return next.length ? next : fallbackColumns;
+}
+
+function formatCellValue(value) {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  if (value == null) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
 export default function ResourcePage({ api, definition, session, scope, onGlobalModeUsed }) {
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
@@ -51,10 +83,21 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   const [sortDirection, setSortDirection] = useState("asc");
   const [confirmAction, setConfirmAction] = useState(null);
   const [structuredFilters, setStructuredFilters] = useState({});
+  const [selectedViewId, setSelectedViewId] = useState("all");
+  const [customViews, setCustomViews] = useState([]);
+  const [viewName, setViewName] = useState("");
+  const [showColumnControls, setShowColumnControls] = useState(false);
+  const [visibleColumnKeys, setVisibleColumnKeys] = useState([]);
+  const [density, setDensity] = useState("comfortable");
+  const [copyMessage, setCopyMessage] = useState("");
   const requestedId = searchParams.get("id") || "";
 
   const fields = definition.fields;
   const idField = definition.idField;
+  const resourceKey = definition.path.replace(/^\//, "") || definition.title.toLowerCase();
+  const userPreferenceKey = session?.userId || "anonymous";
+  const viewStorageKey = `wotlwedu_browser_resource_views:${userPreferenceKey}:${resourceKey}`;
+  const tableStorageKey = `wotlwedu_browser_resource_table:${userPreferenceKey}:${resourceKey}`;
   const isRoleResource = definition.path === "/role";
   const isCategoryResource = definition.path === "/category";
   const isPeopleResource = definition.path === "/person";
@@ -86,6 +129,79 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
 
   const isProtectedRole = (role) =>
     role?.protected === true || role?.protected === 1 || role?.protected === "1";
+
+  const availableColumns = useMemo(() => {
+    const labels = new Map(fields.map(([key, label]) => [key, label]));
+    if (isRoleResource) labels.set("protected", "Protected");
+    const orderedKeys = [
+      ...(definition.tableColumns || []),
+      ...fields.map(([key]) => key),
+      ...(isRoleResource ? ["protected"] : []),
+    ];
+    const seen = new Set();
+    return orderedKeys
+      .filter((key) => {
+        if (key === idField || seen.has(key)) return false;
+        seen.add(key);
+        return labels.has(key);
+      })
+      .map((key) => ({ key, label: labels.get(key) || key }));
+  }, [definition.tableColumns, fields, idField, isRoleResource]);
+
+  const defaultVisibleColumnKeys = useMemo(
+    () => normalizeColumns(definition.tableColumns, availableColumns, fields.slice(0, 3).map(([key]) => key)),
+    [availableColumns, definition.tableColumns, fields]
+  );
+
+  const defaultViews = useMemo(() => {
+    const builtIn = [
+      {
+        id: "all",
+        name: `All ${definition.title}`,
+        filter: "",
+        filters: {},
+        sortKey: idField,
+        sortDirection: "asc",
+        itemsPerPage: 50,
+        columns: defaultVisibleColumnKeys,
+        density: "comfortable",
+      },
+      ...(definition.savedViews || []).map((view) => ({
+        filter: "",
+        filters: {},
+        sortKey: idField,
+        sortDirection: "asc",
+        itemsPerPage: 50,
+        columns: defaultVisibleColumnKeys,
+        density: "comfortable",
+        ...view,
+        id: `default:${view.id}`,
+      })),
+    ];
+    return builtIn;
+  }, [defaultVisibleColumnKeys, definition.savedViews, definition.title, idField]);
+
+  const allViews = useMemo(
+    () => [
+      ...defaultViews,
+      ...customViews.map((view) => ({
+        ...view,
+        id: `custom:${view.id}`,
+        customId: view.id,
+        custom: true,
+      })),
+    ],
+    [customViews, defaultViews]
+  );
+
+  const selectedView = allViews.find((view) => view.id === selectedViewId) || allViews[0];
+  const visibleColumns = useMemo(
+    () =>
+      normalizeColumns(visibleColumnKeys, availableColumns, defaultVisibleColumnKeys)
+        .map((key) => availableColumns.find((column) => column.key === key))
+        .filter(Boolean),
+    [availableColumns, defaultVisibleColumnKeys, visibleColumnKeys]
+  );
 
   const visibleCapabilities = useMemo(() => {
     if (!isRoleResource) return [];
@@ -389,6 +505,27 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
   };
 
   useEffect(() => {
+    const savedTable = readStoredJson(tableStorageKey, {});
+    const savedViews = readStoredJson(viewStorageKey, { selectedViewId: "all", customViews: [] });
+    const nextColumns = normalizeColumns(savedTable.columns, availableColumns, defaultVisibleColumnKeys);
+    setVisibleColumnKeys(nextColumns);
+    setDensity(["comfortable", "compact", "audit"].includes(savedTable.density) ? savedTable.density : "comfortable");
+    setCustomViews(Array.isArray(savedViews.customViews) ? savedViews.customViews : []);
+    setSelectedViewId(savedViews.selectedViewId || "all");
+    setViewName("");
+    setShowColumnControls(false);
+  }, [availableColumns, defaultVisibleColumnKeys, tableStorageKey, viewStorageKey]);
+
+  useEffect(() => {
+    if (!availableColumns.length) return;
+    writeStoredJson(tableStorageKey, { columns: visibleColumnKeys, density });
+  }, [availableColumns.length, density, tableStorageKey, visibleColumnKeys]);
+
+  useEffect(() => {
+    writeStoredJson(viewStorageKey, { selectedViewId, customViews });
+  }, [customViews, selectedViewId, viewStorageKey]);
+
+  useEffect(() => {
     setSortKey(definition.idField);
     const resetOwnerId = session?.userId || "";
     setForm({
@@ -405,6 +542,20 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
       setShowAllRoleCapabilities(false);
     }
   }, [newRecord, isCategoryResource, isRoleResource, session?.userId]);
+
+  useEffect(() => {
+    if (!selectedView) return;
+    setFilter(selectedView.filter || "");
+    setStructuredFilters(selectedView.filters || {});
+    setSortKey(selectedView.sortKey || idField);
+    setSortDirection(selectedView.sortDirection || "asc");
+    setItemsPerPage(selectedView.itemsPerPage || 50);
+    setVisibleColumnKeys(
+      normalizeColumns(selectedView.columns, availableColumns, defaultVisibleColumnKeys)
+    );
+    setDensity(selectedView.density || "comfortable");
+    setPage(1);
+  }, [selectedViewId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -486,10 +637,107 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
 
   function clearAllStructuredFilters() {
     setStructuredFilters({});
+    setSelectedViewId("all");
     setPage(1);
   }
 
   const structuredFilterEntries = Object.entries(structuredFilters);
+
+  function currentViewSnapshot(name) {
+    return {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: name.trim(),
+      filter,
+      filters: structuredFilters,
+      sortKey,
+      sortDirection,
+      itemsPerPage,
+      columns: visibleColumnKeys,
+      density,
+    };
+  }
+
+  function saveCustomView() {
+    const name = viewName.trim();
+    if (!name) {
+      setError("Name the view before saving it.");
+      return;
+    }
+    const nextView = currentViewSnapshot(name);
+    setCustomViews((current) => [...current, nextView]);
+    setSelectedViewId(`custom:${nextView.id}`);
+    setViewName("");
+    setSuccess("Saved custom view");
+  }
+
+  function renameCustomView() {
+    if (!selectedView?.custom) {
+      setError("Duplicate a default view before renaming it.");
+      return;
+    }
+    const name = viewName.trim();
+    if (!name) {
+      setError("Enter a new view name.");
+      return;
+    }
+    setCustomViews((current) =>
+      current.map((view) => (view.id === selectedView.customId ? { ...view, name } : view))
+    );
+    setViewName("");
+    setSuccess("Renamed custom view");
+  }
+
+  function duplicateSelectedView() {
+    const source = selectedView || allViews[0];
+    const name = viewName.trim() || `${source.name} copy`;
+    const nextView = {
+      ...source,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      filter,
+      filters: structuredFilters,
+      sortKey,
+      sortDirection,
+      itemsPerPage,
+      columns: visibleColumnKeys,
+      density,
+    };
+    delete nextView.custom;
+    delete nextView.customId;
+    setCustomViews((current) => [...current, nextView]);
+    setSelectedViewId(`custom:${nextView.id}`);
+    setViewName("");
+    setSuccess("Duplicated view");
+  }
+
+  function deleteCustomView() {
+    if (!selectedView?.custom) {
+      setError("Default views cannot be deleted.");
+      return;
+    }
+    setCustomViews((current) => current.filter((view) => view.id !== selectedView.customId));
+    setSelectedViewId("all");
+    setSuccess("Deleted custom view");
+  }
+
+  function updateVisibleColumn(key, checked) {
+    setVisibleColumnKeys((current) => {
+      const without = current.filter((columnKey) => columnKey !== key);
+      if (!checked) return without.length ? without : current;
+      return [...without, key];
+    });
+  }
+
+  async function copyText(value, label = "value") {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+      setCopyMessage(`Copied ${label}`);
+      window.setTimeout(() => setCopyMessage(""), 1800);
+    } catch {
+      setError(`Unable to copy ${label}.`);
+    }
+  }
 
   function pickerConfig(type) {
     const orgId = scope?.activeOrganizationId || form.organizationId || session?.organizationId || "";
@@ -698,6 +946,76 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
           {scope?.globalModeConfirmed ? <span className="danger-text">Global write confirmation resets after destructive actions</span> : null}
         </div>
 
+        <div className="view-toolbar">
+          <label className="field view-select-field">
+            <span>View</span>
+            <select value={selectedViewId} onChange={(event) => setSelectedViewId(event.target.value)}>
+              {defaultViews.map((view) => (
+                <option key={view.id} value={view.id}>{view.name}</option>
+              ))}
+              {customViews.length ? <option disabled>Custom views</option> : null}
+              {customViews.map((view) => (
+                <option key={view.id} value={`custom:${view.id}`}>{view.name}</option>
+              ))}
+            </select>
+          </label>
+          <input
+            value={viewName}
+            onChange={(event) => setViewName(event.target.value)}
+            placeholder={selectedView?.custom ? "Rename or save as" : "New view name"}
+            aria-label="View name"
+          />
+          <button className="btn btn-secondary" type="button" onClick={saveCustomView}>
+            Save View
+          </button>
+          <button className="btn btn-secondary" type="button" onClick={renameCustomView}>
+            Rename
+          </button>
+          <button className="btn btn-secondary" type="button" onClick={duplicateSelectedView}>
+            Duplicate
+          </button>
+          <button className="btn btn-secondary" type="button" onClick={deleteCustomView}>
+            Delete
+          </button>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={() => setShowColumnControls((current) => !current)}
+          >
+            Columns
+          </button>
+          <label className="field density-field">
+            <span>Density</span>
+            <select value={density} onChange={(event) => setDensity(event.target.value)}>
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+              <option value="audit">Audit</option>
+            </select>
+          </label>
+        </div>
+        {showColumnControls ? (
+          <div className="column-chooser" aria-label="Column chooser">
+            {availableColumns.map((column) => (
+              <label key={column.key} className="check-row">
+                <input
+                  type="checkbox"
+                  checked={visibleColumnKeys.includes(column.key)}
+                  onChange={(event) => updateVisibleColumn(column.key, event.target.checked)}
+                />
+                <span>{column.label}</span>
+              </label>
+            ))}
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => setVisibleColumnKeys(defaultVisibleColumnKeys)}
+            >
+              Reset Columns
+            </button>
+          </div>
+        ) : null}
+        {copyMessage ? <p className="muted-line">{copyMessage}</p> : null}
+
         {loading ? <Loading /> : (
           <div className="data-table-scroll">
             {!hasLoadedRows ? (
@@ -710,7 +1028,7 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                 </span>
               </div>
             ) : (
-              <table className="data-table">
+              <table className={`data-table data-table-${density}`}>
                 <thead>
                   <tr>
                     <th>
@@ -718,14 +1036,13 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                         ID{sortKey === idField ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
                       </button>
                     </th>
-                    {fields.slice(0, 3).map(([key, label]) => (
+                    {visibleColumns.map(({ key, label }) => (
                       <th key={key}>
                         <button className="table-sort" type="button" onClick={() => toggleSort(key)}>
                           {label}{sortKey === key ? ` ${sortDirection === "asc" ? "↑" : "↓"}` : ""}
                         </button>
                       </th>
                     ))}
-                    {isRoleResource && <th>Status</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -735,17 +1052,35 @@ export default function ResourcePage({ api, definition, session, scope, onGlobal
                       className={selectedId === row[idField] ? "row-selected" : ""}
                       onClick={() => loadSingle(row[idField])}
                     >
-                      <td>{row[idField]}</td>
-                      {fields.slice(0, 3).map(([key]) => <td key={key}>{String(row[key] ?? "")}</td>)}
-                      {isRoleResource && (
-                        <td>
-                          {isProtectedRole(row) ? (
-                            <span className="role-protected-badge">Protected</span>
+                      <td>
+                        <div className="id-cell">
+                          <span>{row[idField]}</span>
+                          <button
+                            className="copy-id-button"
+                            type="button"
+                            title="Copy ID"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              copyText(row[idField], "ID");
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </td>
+                      {visibleColumns.map(({ key }) => (
+                        <td key={key}>
+                          {key === "protected" && isRoleResource ? (
+                            isProtectedRole(row) ? (
+                              <span className="role-protected-badge">Protected</span>
+                            ) : (
+                              <span className="role-standard-badge">Editable</span>
+                            )
                           ) : (
-                            <span className="role-standard-badge">Editable</span>
+                            formatCellValue(row[key])
                           )}
                         </td>
-                      )}
+                      ))}
                     </tr>
                   ))}
                 </tbody>
